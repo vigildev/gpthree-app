@@ -31,8 +31,16 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
   const deleteThread = useAction(api.agents.deleteThread);
 
   const handleNewThread = async () => {
+    if (!user) {
+      console.error("User not authenticated");
+      return;
+    }
+    
     try {
-      const { threadId } = await createNewThread({ title: "New Conversation" });
+      const { threadId } = await createNewThread({ 
+        title: "New Conversation",
+        userId: user.id 
+      });
       onThreadSelect?.(threadId);
     } catch (error) {
       console.error("Failed to create new thread:", error);
