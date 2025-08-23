@@ -138,7 +138,9 @@ export function Dashboard() {
                       style={{ animationDelay: "0.4s" }}
                     ></div>
                   </div>
-                  <span className="text-muted-foreground font-light">Thinking...</span>
+                  <span className="text-muted-foreground font-light">
+                    Thinking...
+                  </span>
                 </div>
               </div>
             </div>
@@ -160,7 +162,7 @@ export function Dashboard() {
           <Button
             onClick={handleSendMessage}
             disabled={isLoading || !message.trim()}
-            className="absolute right-6 top-4 h-8 w-8 p-0 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 disabled:from-muted disabled:to-muted text-white rounded-full transition-colors flex items-center justify-center"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 disabled:from-muted disabled:to-muted text-white rounded-full transition-colors flex items-center justify-center"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -202,9 +204,15 @@ export function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
             { text: "Code Review", desc: "Analyze and improve code quality" },
-            { text: "Data Analysis", desc: "Process and visualize data insights" },
+            {
+              text: "Data Analysis",
+              desc: "Process and visualize data insights",
+            },
             { text: "Research Help", desc: "Deep research with citations" },
-            { text: "Writing Assistant", desc: "Professional content creation" },
+            {
+              text: "Writing Assistant",
+              desc: "Professional content creation",
+            },
           ].map((action) => (
             <button
               key={action.text}
@@ -223,7 +231,7 @@ export function Dashboard() {
       </div>
 
       {/* Tools Section */}
-      <div className="space-y-8">
+      {/* <div className="space-y-8">
         <div>
           <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
             Available Tools
@@ -263,7 +271,7 @@ export function Dashboard() {
             tag="privacy"
           />
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
