@@ -53,7 +53,17 @@ export const createThread = action({
   handler: async (ctx, { prompt, model }) => {
     const modelId = model || defaultModelId;
     const agent = createGPThreeAgent(modelId);
-    const { threadId, thread } = await agent.createThread(ctx);
+    const userId = await getAuthUserId(ctx);
+    
+    // Generate a title from the first few words of the prompt
+    const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
+    
+    const { threadId, thread } = await agent.createThread(ctx, {
+      userId,
+      title,
+      summary: "New conversation with GPThree",
+    });
+    
     const result = await thread.generateText({ prompt });
     return { threadId, text: result.text };
   },
