@@ -94,7 +94,7 @@ export function Dashboard() {
           </h1>
         </div>
         <p className="text-muted-foreground text-lg font-light ml-16">
-          Privacy-first crypto intelligence
+          Privacy-first AI intelligence
         </p>
       </div>
 
@@ -150,7 +150,7 @@ export function Dashboard() {
       <div className="mb-16">
         <div className="mx-auto relative">
           <Input
-            placeholder="Ask about DeFi strategies, privacy coins, or blockchain analysis..."
+            placeholder="Ask anything... I'm your privacy-focused AI assistant"
             className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -201,10 +201,10 @@ export function Dashboard() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { text: "Privacy Analysis", desc: "Transaction privacy audit" },
-            { text: "DeFi Strategy", desc: "Yield optimization guide" },
-            { text: "Model Comparison", desc: "AI model benchmarks" },
-            { text: "Security Review", desc: "Smart contract analysis" },
+            { text: "Code Review", desc: "Analyze and improve code quality" },
+            { text: "Data Analysis", desc: "Process and visualize data insights" },
+            { text: "Research Help", desc: "Deep research with citations" },
+            { text: "Writing Assistant", desc: "Professional content creation" },
           ].map((action) => (
             <button
               key={action.text}
@@ -229,13 +229,13 @@ export function Dashboard() {
             Available Tools
           </h3>
           <p className="text-muted-foreground font-light">
-            18 integrated models and crypto analysis tools
+            18+ AI models and specialized tools at your disposal
           </p>
         </div>
 
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="bg-muted border-0 h-auto p-1 rounded-xl">
-            {["All", "Privacy", "DeFi", "Models", "Analytics", "Security"].map(
+            {["All", "Coding", "Writing", "Research", "Analysis", "Privacy"].map(
               (tab) => (
                 <TabsTrigger
                   key={tab}
@@ -251,16 +251,16 @@ export function Dashboard() {
 
         <div className="grid md:grid-cols-2 gap-6">
           <IntegrationCard
-            icon="🔒"
-            title="Privacy Analysis"
-            description="Analyze transactions for privacy leaks and suggest improvements"
-            tag="privacy"
+            icon="🧠"
+            title="Multi-Model Intelligence"
+            description="Compare responses from multiple AI models for any task"
+            tag="intelligence"
           />
           <IntegrationCard
-            icon="🤖"
-            title="LLM Aggregator"
-            description="Compare responses from multiple AI models for crypto queries"
-            tag="llms"
+            icon="🔐"
+            title="Privacy-First Processing"
+            description="Your data stays private with end-to-end encryption"
+            tag="privacy"
           />
         </div>
       </div>

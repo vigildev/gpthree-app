@@ -38,7 +38,7 @@ const modelCategories: ModelCategory[] = [
         provider: "Anthropic",
         pricing: "$3.00 / $15.00",
         description:
-          "Latest Claude with enhanced reasoning - top choice for crypto analysis",
+          "Latest Claude with enhanced reasoning - top choice for complex tasks",
         badge: "🔥 Trending",
       },
       {
@@ -68,7 +68,7 @@ const modelCategories: ModelCategory[] = [
         name: "Claude 3.5 Sonnet",
         provider: "Anthropic",
         pricing: "$3.00 / $15.00",
-        description: "Proven reliability for complex crypto tasks",
+        description: "Proven reliability for complex analytical tasks",
       },
       {
         id: "openai/gpt-4o",
@@ -102,7 +102,7 @@ const modelCategories: ModelCategory[] = [
         name: "Qwen3 14B",
         provider: "Qwen",
         pricing: "$0.06 / $0.24",
-        description: "Efficient model for general crypto queries",
+        description: "Efficient model for general purpose tasks",
       },
       {
         id: "meta-llama/llama-3.3-70b",
@@ -122,7 +122,7 @@ const modelCategories: ModelCategory[] = [
         name: "Claude 3.7 Sonnet (Thinking)",
         provider: "Anthropic",
         pricing: "$3.00 / $15.00",
-        description: "Extended reasoning mode for complex DeFi analysis",
+        description: "Extended reasoning mode for complex analysis",
       },
       {
         id: "qwen/qwen3-30b-a3b",
