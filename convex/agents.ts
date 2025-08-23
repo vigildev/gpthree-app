@@ -125,10 +125,9 @@ export const listUserThreads = query({
     summary: string;
     _creationTime: number;
   }>> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return [];
-    }
+    // TODO: For now, skip auth check since we're returning empty arrays anyway
+    // Once agent creates the agent_threads table and we have proper auth, 
+    // we'll add the auth check back
     
     // TODO: Once agent creates the agent_threads table, we can query it
     // For now, return empty array until agent tables are set up
@@ -164,10 +163,9 @@ export const listThreadMessages = query({
     threadId: v.string(),
   },
   handler: async (ctx, { threadId }) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      throw new Error("User must be authenticated to view messages");
-    }
+    // TODO: For now, skip auth check since we're returning empty arrays anyway
+    // Once agent creates the agent_messages table and we have proper auth, 
+    // we'll add the auth check back
     
     // TODO: Once agent creates the agent_messages table, we can query it
     // For now, return empty array until agent tables are set up
