@@ -18,12 +18,9 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
 });
 
-// Helper function to create GPThree agent with specified model
-function createGPThreeAgent(modelId: string) {
-  return new Agent(components.agent, {
-    name: "GPThree Assistant",
-    chat: openrouter.chat(modelId),
-    instructions: `You are GPThree, a privacy-first AI assistant that helps users with any task while maintaining the highest standards of privacy and security.
+// Helper function to create GPThree agent with specified model and optional system enhancement
+function createGPThreeAgent(modelId: string, systemEnhancement?: string) {
+  const baseInstructions = `You are GPThree, a privacy-first AI assistant that helps users with any task while maintaining the highest standards of privacy and security.
 
 You help users with:
 - Code review, debugging, and software development
@@ -40,8 +37,18 @@ Key principles:
 - Offer multiple perspectives and approaches when appropriate
 - Maintain a helpful, professional, and friendly tone
 - Respect user confidentiality and never share or reference previous conversations
+- If you don't know something say you don't know without making anything up
 
-You are knowledgeable about various AI models and can help users choose the best model for their specific tasks. You have access to multiple AI models through OpenRouter including Claude, GPT, Llama, and many others.`,
+You are knowledgeable about various AI models and can help users choose the best model for their specific tasks. You have access to multiple AI models through OpenRouter including Claude, GPT, Llama, and many others.`;
+
+  const instructions = systemEnhancement 
+    ? `${baseInstructions}\n\n--- SPECIALIZED MODE ---\n\n${systemEnhancement}`
+    : baseInstructions;
+
+  return new Agent(components.agent, {
+    name: "GPThree Assistant",
+    chat: openrouter.chat(modelId),
+    instructions,
 
     // Use OpenAI directly for embeddings with correct model ID
     textEmbedding: openai.embedding("text-embedding-3-small"),
