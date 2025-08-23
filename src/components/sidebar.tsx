@@ -13,6 +13,7 @@ import { api } from "../../convex/_generated/api";
 interface SidebarProps {
   currentThreadId?: string;
   onThreadSelect?: (threadId: string) => void;
+  onThreadDeleted?: (threadId: string) => void;
 }
 
 export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
@@ -41,8 +42,15 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
   const handleDeleteThread = async (threadId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (!user) {
+      console.error("User not authenticated");
+      return;
+    }
+    
     try {
-      await deleteThread({ threadId });
+      await deleteThread({ threadId, userId: user.id });
+      console.log("Thread deleted successfully:", threadId);
     } catch (error) {
       console.error("Failed to delete thread:", error);
     }

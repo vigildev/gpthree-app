@@ -150,20 +150,20 @@ export const listUserThreads = query({
   },
 });
 
-// Delete a thread - using mutation since actions can't access db directly
+// Delete a thread using Convex Agent API
 export const deleteThread = action({
   args: {
     threadId: v.string(),
+    userId: v.string(),
   },
-  handler: async (ctx, { threadId }) => {
-    const userId = await getAuthUserId(ctx);
+  handler: async (ctx, { threadId, userId }) => {
     if (!userId) {
       throw new Error("User must be authenticated to delete threads");
     }
     
     try {
-      // Call a mutation to handle the database delete
-      await ctx.runMutation(internal.agents.deleteThreadMutation, { threadId, userId });
+      const agent = createGPThreeAgent(defaultModelId);
+      await agent.deleteThreadAsync(ctx, { threadId });
       return { success: true };
     } catch (error) {
       console.error("Failed to delete thread:", error);
@@ -196,16 +196,3 @@ export const listThreadMessages = query({
   },
 });
 
-// Internal mutation for deleting threads (called by the action)
-export const deleteThreadMutation = internalMutation({
-  args: {
-    threadId: v.string(),
-    userId: v.string(),
-  },
-  handler: async (ctx, { threadId, userId }) => {
-    // TODO: Once agent creates the agent_threads table, we can delete threads
-    // For now, just log the attempt
-    console.log("Delete thread request:", { threadId, userId });
-    return { success: true };
-  },
-});
