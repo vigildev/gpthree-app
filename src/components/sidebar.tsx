@@ -61,8 +61,8 @@ export function Sidebar() {
 
       {ready && authenticated && <Button onClick={logout}>Logout</Button>}
       <div className="flex items-center gap-2 pt-4 border-t mt-3">
-        <div className="flex-1">
-          <div className="font-medium">Yash Agarwal</div>
+        <div className="flex-1 self-center">
+          <div className="font-thin text-xs">Safe and Secure</div>
           <div className="text-xs text-muted-foreground">Pro</div>
         </div>
         <Button
