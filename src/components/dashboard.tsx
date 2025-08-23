@@ -6,73 +6,162 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
-import { useState } from "react";
-import { useAction } from "convex/react";
+import { useState, useEffect, useRef } from "react";
+import { useAction, useQuery } from "convex/react";
+import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
+import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 
-export function Dashboard() {
+interface DashboardProps {
+  threadId?: string;
+  onThreadChange?: (threadId: string) => void;
+}
+
+export function Dashboard({
+  threadId: currentThreadId,
+  onThreadChange,
+}: DashboardProps) {
+  const { ready, authenticated, user } = usePrivy();
   const [message, setMessage] = useState("");
-  const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.7-sonnet"
   );
-  const [chatHistory, setChatHistory] = useState<
-    Array<{ role: "user" | "assistant"; content: string }>
+  const [chatMessages, setChatMessages] = useState<
+    Array<{
+      key: string;
+      role: "user" | "assistant";
+      content: string;
+      status: "complete";
+    }>
   >([]);
+  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickAction | null>(null);
+
+  console.log({ ready, authenticated, user });
+
+  if (!ready) {
+    return (
+      <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">
+        Initializing...
+      </div>
+    );
+  }
+
+  if (!authenticated || !user) {
+    return (
+      <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">
+        Please log in to continue.
+      </div>
+    );
+  }
 
   const createThread = useAction(api.agents.createThread);
   const continueThread = useAction(api.agents.continueThread);
 
+  // Use regular Convex query to get messages for the current thread
+  const messages = useQuery(
+    api.agents.listThreadMessages,
+    currentThreadId ? { threadId: currentThreadId } : "skip"
+  );
+
+  // Convert messages to UI format and ensure proper ordering (newest at bottom)
+  const persistedMessages = messages
+    ? messages
+        .sort((a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)) // Sort by creation time
+        .map((msg: any, index: number) => ({
+          key: `${msg._id || index}`,
+          role: msg.author === "user" ? "user" : "assistant",
+          content: msg.content || msg.text || "",
+          status: "complete" as const,
+        }))
+    : [];
+
+  // Clear local chat messages when thread changes
+  useEffect(() => {
+    setChatMessages([]);
+  }, [currentThreadId]);
+
+  // Use persisted messages if available, otherwise use local state
+  const displayMessages =
+    currentThreadId && persistedMessages.length > 0
+      ? persistedMessages
+      : chatMessages;
+
   // Handle model change - start new conversation
   const handleModelChange = (newModel: string) => {
     setSelectedModel(newModel);
-    // Start fresh conversation when model changes
-    setThreadId(null);
-    setChatHistory([]);
+    // Model changes within the same thread are fine
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || !user) return;
 
     const userMessage = message;
     setMessage("");
     setIsLoading(true);
 
-    // Add user message to chat history
-    setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
+    // Add user message to chat immediately
+    const userChatMessage = {
+      key: `user-${Date.now()}`,
+      role: "user" as const,
+      content: userMessage,
+      status: "complete" as const,
+    };
+    setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
-      if (threadId) {
+      if (currentThreadId) {
+        // Continue existing thread
         const response = await continueThread({
           prompt: userMessage,
-          threadId,
+          threadId: currentThreadId,
           model: selectedModel,
+          systemEnhancement: selectedQuickAction?.systemEnhancement,
         });
-        setChatHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: response },
-        ]);
+        console.log("Continue thread response:", response);
+
+        // Add AI response to chat
+        const aiChatMessage = {
+          key: `ai-${Date.now()}`,
+          role: "assistant" as const,
+          content: response,
+          status: "complete" as const,
+        };
+        setChatMessages((prev) => [...prev, aiChatMessage]);
       } else {
+        // Create new thread
         const response = await createThread({
           prompt: userMessage,
           model: selectedModel,
+          userId: user.id,
+          systemEnhancement: selectedQuickAction?.systemEnhancement,
         });
-        setThreadId(response.threadId);
-        setChatHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: response.text },
-        ]);
+        console.log("Create thread response:", response);
+
+        // Add AI response to chat
+        const aiChatMessage = {
+          key: `ai-${Date.now()}`,
+          role: "assistant" as const,
+          content: response.text,
+          status: "complete" as const,
+        };
+        setChatMessages((prev) => [...prev, aiChatMessage]);
+
+        // Notify parent component about the new thread
+        onThreadChange?.(response.threadId);
       }
     } catch (error) {
-      console.error("Error:", error);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-        },
-      ]);
+      console.error("Error sending message:", error);
+
+      // Add error message to chat
+      const errorChatMessage = {
+        key: `error-${Date.now()}`,
+        role: "assistant" as const,
+        content:
+          "Sorry, there was an error processing your request. Please try again.",
+        status: "complete" as const,
+      };
+      setChatMessages((prev) => [...prev, errorChatMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -99,11 +188,11 @@ export function Dashboard() {
       </div>
 
       {/* Chat History */}
-      {chatHistory.length > 0 && (
+      {displayMessages.length > 0 && (
         <div className="mb-12 space-y-6">
-          {chatHistory.map((msg, index) => (
+          {displayMessages.map((msg) => (
             <div
-              key={index}
+              key={msg.key}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
             >
               <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
@@ -117,6 +206,14 @@ export function Dashboard() {
                 }`}
               >
                 {msg.content}
+                {msg.status !== "complete" && (
+                  <div className="mt-2 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-muted-foreground">
+                      Loading...
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -150,9 +247,30 @@ export function Dashboard() {
 
       {/* Input Area */}
       <div className="mb-16">
+        {selectedQuickAction && (
+          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <span className="text-sm font-medium text-primary">
+                  {selectedQuickAction.text} Mode Active
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedQuickAction(null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mx-auto relative">
           <Input
-            placeholder="Ask anything... I'm your privacy-focused AI assistant"
+            placeholder={selectedQuickAction 
+              ? `Ask anything about ${selectedQuickAction.text.toLowerCase()}...`
+              : "Ask anything... I'm your privacy-focused AI assistant"
+            }
             className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -202,22 +320,18 @@ export function Dashboard() {
           Quick Start
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { text: "Code Review", desc: "Analyze and improve code quality" },
-            {
-              text: "Data Analysis",
-              desc: "Process and visualize data insights",
-            },
-            { text: "Research Help", desc: "Deep research with citations" },
-            {
-              text: "Writing Assistant",
-              desc: "Professional content creation",
-            },
-          ].map((action) => (
+          {QUICK_START_ACTIONS.map((action) => (
             <button
               key={action.text}
-              className="p-6 text-left bg-card border border-border hover:border-primary/50 hover:shadow-md rounded-2xl transition-all duration-200 group"
-              onClick={() => setMessage(action.text)}
+              className={`p-6 text-left rounded-2xl transition-all duration-200 group ${
+                selectedQuickAction?.text === action.text
+                  ? "bg-primary/5 border border-primary/30 shadow-md"
+                  : "bg-card border border-border hover:border-primary/50 hover:shadow-md"
+              }`}
+              onClick={() => {
+                setSelectedQuickAction(action);
+                setMessage(""); // Clear input when selecting an action
+              }}
             >
               <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
                 {action.text}
