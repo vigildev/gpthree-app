@@ -8,7 +8,7 @@ import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
 import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
-import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react";
+import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
 
 interface DashboardProps {
@@ -16,29 +16,44 @@ interface DashboardProps {
   onThreadChange?: (threadId: string) => void;
 }
 
-export function Dashboard({ threadId: currentThreadId, onThreadChange }: DashboardProps) {
+export function Dashboard({
+  threadId: currentThreadId,
+  onThreadChange,
+}: DashboardProps) {
+  const { ready, authenticated, user } = usePrivy();
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.7-sonnet"
   );
+  
+  console.log({ ready, authenticated, user });
+
+  if (!ready) {
+    return <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">Initializing...</div>;
+  }
+  
+  if (!authenticated || !user) {
+    return <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">Please log in to continue.</div>;
+  }
 
   const createThread = useAction(api.agents.createThread);
   const continueThread = useAction(api.agents.continueThread);
-  
-  // Use the thread messages hook to get real-time messages for the current thread
-  const messages = useThreadMessages(
+
+  // Use regular Convex query to get messages for the current thread
+  const messages = useQuery(
     api.agents.listThreadMessages,
-    currentThreadId ? { threadId: currentThreadId } : "skip",
-    {
-      initialNumItems: 50,
-      stream: true,
-    }
+    currentThreadId ? { threadId: currentThreadId } : "skip"
   );
-  
-  // Convert to UI messages format
-  const uiMessages = currentThreadId && messages.results 
-    ? toUIMessages(messages.results) 
+
+  // Convert messages to UI format
+  const uiMessages = messages
+    ? messages.map((msg: any, index: number) => ({
+        key: `${msg._id || index}`,
+        role: msg.role || (msg.author === "user" ? "user" : "assistant"),
+        content: msg.content || msg.text || "",
+        status: "complete" as const,
+      }))
     : [];
 
   // Handle model change - start new conversation
@@ -48,7 +63,7 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || isLoading) return;
+    if (!message.trim() || isLoading || !user) return;
 
     const userMessage = message;
     setMessage("");
@@ -62,18 +77,21 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
           threadId: currentThreadId,
           model: selectedModel,
         });
-        // The message will appear automatically via useThreadMessages hook
+        console.log("Continue thread response:", response);
+        // The message will appear automatically via requery
       } else {
         // Create new thread
         const response = await createThread({
           prompt: userMessage,
           model: selectedModel,
+          userId: user.id,
         });
+        console.log("Create thread response:", response);
         // Notify parent component about the new thread
         onThreadChange?.(response.threadId);
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error sending message:", error);
       // Could show an error toast here
     } finally {
       setIsLoading(false);
@@ -119,10 +137,12 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
                 }`}
               >
                 {msg.content}
-                {msg.status === "streaming" && (
+                {msg.status !== "complete" && (
                   <div className="mt-2 flex items-center space-x-2">
                     <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-muted-foreground">Streaming...</span>
+                    <span className="text-xs text-muted-foreground">
+                      Loading...
+                    </span>
                   </div>
                 )}
               </div>
