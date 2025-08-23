@@ -1,9 +1,10 @@
 import { components } from "./_generated/api";
-import { Agent } from "@convex-dev/agent";
+import { Agent, createThread as createAgentThread, deleteThreadAsync } from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { action } from "./_generated/server";
+import { action, query } from "./_generated/server";
 import { v } from "convex/values";
 import { openai } from "@ai-sdk/openai";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Create OpenRouter instance
 const openrouter = createOpenRouter({
