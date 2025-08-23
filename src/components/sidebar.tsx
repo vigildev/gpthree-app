@@ -17,14 +17,18 @@ interface SidebarProps {
 
 export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
   const { theme, setTheme } = useTheme();
-  const { ready, authenticated, logout } = usePrivy();
+  const { ready, authenticated, logout, user } = usePrivy();
   const { wallets } = useSolanaWallets();
-  
+
   // Fetch user's threads
-  const threads = useQuery(api.agents.listUserThreads) || [];
+  const threads =
+    useQuery(
+      api.agents.listUserThreads,
+      ready && authenticated && user ? { userId: user.id } : "skip"
+    ) || [];
   const createNewThread = useAction(api.agents.createNewThread);
   const deleteThread = useAction(api.agents.deleteThread);
-  
+
   const handleNewThread = async () => {
     try {
       const { threadId } = await createNewThread({ title: "New Conversation" });
@@ -33,7 +37,7 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
       console.error("Failed to create new thread:", error);
     }
   };
-  
+
   const handleDeleteThread = async (threadId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -43,20 +47,20 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
       console.error("Failed to delete thread:", error);
     }
   };
-  
+
   // Helper function to format relative time
   const formatRelativeTime = (timestamp: number) => {
     const now = Date.now();
     const diffMs = now - timestamp;
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    
+
     if (diffDays > 0) {
-      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
     } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     } else {
-      return 'Just now';
+      return "Just now";
     }
   };
 
@@ -84,18 +88,22 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
       <div className="flex-1">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-foreground">Recent</span>
-          <span className="text-xs text-muted-foreground">{threads.length} threads</span>
+          <span className="text-xs text-muted-foreground">
+            {threads.length} threads
+          </span>
         </div>
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {threads.map((thread) => (
             <div
               key={thread._id}
               className={`group relative block text-sm p-2 rounded-lg hover:bg-secondary/20 transition-colors cursor-pointer ${
-                currentThreadId === thread._id ? 'bg-secondary/30' : ''
+                currentThreadId === thread._id ? "bg-secondary/30" : ""
               }`}
               onClick={() => onThreadSelect?.(thread._id)}
             >
-              <div className="font-medium truncate text-foreground pr-6">{thread.title}</div>
+              <div className="font-medium truncate text-foreground pr-6">
+                {thread.title}
+              </div>
               <div className="text-xs text-muted-foreground">
                 {formatRelativeTime(thread._creationTime)}
               </div>
@@ -120,7 +128,7 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
       </div>
 
       {ready && authenticated && (
-        <Button 
+        <Button
           onClick={logout}
           className="mb-3 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 text-white"
         >
@@ -129,7 +137,9 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
       )}
       <div className="flex items-center gap-2 pt-4 border-t border-border mt-3">
         <div className="flex-1 self-center">
-          <div className="font-thin text-xs text-foreground">Safe and Secure</div>
+          <div className="font-thin text-xs text-foreground">
+            Safe and Secure
+          </div>
           <div className="text-xs text-muted-foreground">Pro</div>
         </div>
         <Button

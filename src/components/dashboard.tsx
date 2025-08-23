@@ -26,21 +26,31 @@ export function Dashboard({
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.7-sonnet"
   );
-  const [chatMessages, setChatMessages] = useState<Array<{
-    key: string;
-    role: "user" | "assistant";
-    content: string;
-    status: "complete";
-  }>>([]);
-  
+  const [chatMessages, setChatMessages] = useState<
+    Array<{
+      key: string;
+      role: "user" | "assistant";
+      content: string;
+      status: "complete";
+    }>
+  >([]);
+
   console.log({ ready, authenticated, user });
 
   if (!ready) {
-    return <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">Initializing...</div>;
+    return (
+      <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">
+        Initializing...
+      </div>
+    );
   }
-  
+
   if (!authenticated || !user) {
-    return <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">Please log in to continue.</div>;
+    return (
+      <div className="p-12 max-w-5xl mx-auto flex items-center justify-center">
+        Please log in to continue.
+      </div>
+    );
   }
 
   const createThread = useAction(api.agents.createThread);
@@ -53,7 +63,7 @@ export function Dashboard({
   );
 
   // Convert messages to UI format
-  const uiMessages = messages
+  const persistedMessages = messages
     ? messages.map((msg: any, index: number) => ({
         key: `${msg._id || index}`,
         role: msg.role || (msg.author === "user" ? "user" : "assistant"),
@@ -61,6 +71,17 @@ export function Dashboard({
         status: "complete" as const,
       }))
     : [];
+
+  // Clear local chat messages when thread changes
+  useEffect(() => {
+    setChatMessages([]);
+  }, [currentThreadId]);
+
+  // Use persisted messages if available, otherwise use local state
+  const displayMessages =
+    currentThreadId && persistedMessages.length > 0
+      ? persistedMessages
+      : chatMessages;
 
   // Handle model change - start new conversation
   const handleModelChange = (newModel: string) => {
@@ -82,7 +103,7 @@ export function Dashboard({
       content: userMessage,
       status: "complete" as const,
     };
-    setChatMessages(prev => [...prev, userChatMessage]);
+    setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
       if (currentThreadId) {
@@ -93,7 +114,7 @@ export function Dashboard({
           model: selectedModel,
         });
         console.log("Continue thread response:", response);
-        
+
         // Add AI response to chat
         const aiChatMessage = {
           key: `ai-${Date.now()}`,
@@ -101,7 +122,7 @@ export function Dashboard({
           content: response,
           status: "complete" as const,
         };
-        setChatMessages(prev => [...prev, aiChatMessage]);
+        setChatMessages((prev) => [...prev, aiChatMessage]);
       } else {
         // Create new thread
         const response = await createThread({
@@ -110,7 +131,7 @@ export function Dashboard({
           userId: user.id,
         });
         console.log("Create thread response:", response);
-        
+
         // Add AI response to chat
         const aiChatMessage = {
           key: `ai-${Date.now()}`,
@@ -118,22 +139,23 @@ export function Dashboard({
           content: response.text,
           status: "complete" as const,
         };
-        setChatMessages(prev => [...prev, aiChatMessage]);
-        
+        setChatMessages((prev) => [...prev, aiChatMessage]);
+
         // Notify parent component about the new thread
         onThreadChange?.(response.threadId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      
+
       // Add error message to chat
       const errorChatMessage = {
         key: `error-${Date.now()}`,
         role: "assistant" as const,
-        content: "Sorry, there was an error processing your request. Please try again.",
+        content:
+          "Sorry, there was an error processing your request. Please try again.",
         status: "complete" as const,
       };
-      setChatMessages(prev => [...prev, errorChatMessage]);
+      setChatMessages((prev) => [...prev, errorChatMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -160,9 +182,9 @@ export function Dashboard({
       </div>
 
       {/* Chat History */}
-      {chatMessages.length > 0 && (
+      {displayMessages.length > 0 && (
         <div className="mb-12 space-y-6">
-          {chatMessages.map((msg) => (
+          {displayMessages.map((msg) => (
             <div
               key={msg.key}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
