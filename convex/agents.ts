@@ -71,3 +71,96 @@ export const continueThread = action({
     return result.text;
   },
 });
+
+// Create a new thread with user association
+export const createNewThread = action({
+  args: {
+    title: v.optional(v.string()),
+  },
+  handler: async (ctx, { title }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User must be authenticated to create threads");
+    }
+    
+    const threadId = await createAgentThread(ctx, components.agent, {
+      userId,
+      title: title || "New Conversation",
+      summary: "A new conversation with GPThree",
+    });
+    
+    return { threadId };
+  },
+});
+
+// List user's threads
+export const listUserThreads = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return [];
+    }
+    
+    const threads = await ctx.db
+      .query("agent_threads")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(50);
+    
+    return threads.map(thread => ({
+      _id: thread._id,
+      title: thread.title || "Untitled",
+      summary: thread.summary,
+      _creationTime: thread._creationTime,
+    }));
+  },
+});
+
+// Delete a thread
+export const deleteThread = action({
+  args: {
+    threadId: v.string(),
+  },
+  handler: async (ctx, { threadId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User must be authenticated to delete threads");
+    }
+    
+    // Verify thread belongs to user
+    const thread = await ctx.db.get(threadId as any);
+    if (!thread || thread.userId !== userId) {
+      throw new Error("Thread not found or access denied");
+    }
+    
+    await deleteThreadAsync(ctx, components.agent, { threadId });
+  },
+});
+
+// List messages for a thread
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+  },
+  handler: async (ctx, { threadId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User must be authenticated to view messages");
+    }
+    
+    // Verify thread belongs to user
+    const thread = await ctx.db.get(threadId as any);
+    if (!thread || thread.userId !== userId) {
+      throw new Error("Thread not found or access denied");
+    }
+    
+    const messages = await ctx.db
+      .query("agent_messages")
+      .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+      .order("asc")
+      .collect();
+    
+    return messages;
+  },
+});
