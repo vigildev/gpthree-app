@@ -1,6 +1,7 @@
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
+import { createThread as createAgentThread, listMessages } from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { action, query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
@@ -116,22 +117,36 @@ export const createNewThread = action({
   },
 });
 
-// List user's threads - simplified for now
+// List user's threads using Convex Agent API
 export const listUserThreads = query({
-  args: {},
-  handler: async (ctx): Promise<Array<{
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, { userId }): Promise<Array<{
     _id: string;
     title: string;
     summary: string;
     _creationTime: number;
   }>> => {
-    // TODO: For now, skip auth check since we're returning empty arrays anyway
-    // Once agent creates the agent_threads table and we have proper auth, 
-    // we'll add the auth check back
-    
-    // TODO: Once agent creates the agent_threads table, we can query it
-    // For now, return empty array until agent tables are set up
-    return [];
+    try {
+      const threads = await ctx.runQuery(
+        components.agent.threads.listThreadsByUserId,
+        {
+          userId,
+          paginationOpts: { cursor: null, numItems: 50 }
+        }
+      );
+      
+      return threads.page.map((thread: any) => ({
+        _id: thread._id,
+        title: thread.title || "Untitled",
+        summary: thread.summary || "No summary",
+        _creationTime: thread._creationTime,
+      }));
+    } catch (error) {
+      console.log("Failed to fetch threads:", error);
+      return [];
+    }
   },
 });
 
@@ -157,19 +172,27 @@ export const deleteThread = action({
   },
 });
 
-// List messages for a thread - simplified
+// List messages for a thread using Convex Agent API
 export const listThreadMessages = query({
   args: {
     threadId: v.string(),
   },
   handler: async (ctx, { threadId }) => {
-    // TODO: For now, skip auth check since we're returning empty arrays anyway
-    // Once agent creates the agent_messages table and we have proper auth, 
-    // we'll add the auth check back
-    
-    // TODO: Once agent creates the agent_messages table, we can query it
-    // For now, return empty array until agent tables are set up
-    return [];
+    try {
+      const messages = await listMessages(ctx, components.agent, {
+        threadId,
+        excludeToolMessages: true,
+        paginationOpts: {
+          cursor: null,
+          numItems: 100,
+        },
+      });
+      
+      return messages.page;
+    } catch (error) {
+      console.log("Failed to fetch messages:", error);
+      return [];
+    }
   },
 });
 
