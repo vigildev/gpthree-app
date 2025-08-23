@@ -167,18 +167,18 @@ export function ModelSelector({
   return (
     <Select value={selectedModel} onValueChange={onModelSelect}>
       <SelectTrigger
-        className={`${className} bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-lg text-xs font-light text-gray-700 shadow-none focus:ring-0 focus:border-gray-400 transition-colors`}
+        className={`${className} bg-card hover:bg-muted border border-border hover:border-primary/50 rounded-lg text-xs font-light text-card-foreground shadow-none focus:ring-0 focus:border-primary transition-colors`}
       >
         <SelectValue placeholder="Select Model">
-          <span className="text-gray-700 font-light">
+          <span className="text-card-foreground font-light">
             {getSelectedModelDisplay()}
           </span>
         </SelectValue>
       </SelectTrigger>
-      <SelectContent className="bg-white border border-gray-100 rounded-xl shadow-lg max-w-sm">
+      <SelectContent className="bg-popover border border-border rounded-xl shadow-lg max-w-sm">
         {modelCategories.map((category) => (
           <SelectGroup key={category.label}>
-            <SelectLabel className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-gray-50">
+            <SelectLabel className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide border-b border-border">
               <category.icon className="h-3 w-3" />
               {category.label}
             </SelectLabel>
@@ -186,23 +186,23 @@ export function ModelSelector({
               <SelectItem
                 key={model.id}
                 value={model.id}
-                className="px-3 py-3 hover:bg-gray-50 focus:bg-gray-50 cursor-pointer"
+                className="px-3 py-3 hover:bg-accent/20 focus:bg-accent/20 cursor-pointer"
               >
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm text-gray-900">
+                    <span className="font-medium text-sm text-popover-foreground">
                       {model.name}
                     </span>
                     {model.badge && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-light">
+                      <span className="text-xs bg-secondary/20 text-secondary px-2 py-0.5 rounded-full font-light">
                         {model.badge}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 font-light">
+                  <div className="text-xs text-muted-foreground font-light">
                     {model.provider} • {model.pricing} per 1M tokens
                   </div>
-                  <div className="text-xs text-gray-400 font-light leading-relaxed max-w-[300px]">
+                  <div className="text-xs text-muted-foreground/80 font-light leading-relaxed max-w-[300px]">
                     {model.description}
                   </div>
                 </div>

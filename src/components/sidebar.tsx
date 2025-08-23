@@ -21,11 +21,11 @@ export function Sidebar() {
   ]);
 
   return (
-    <div className="w-64 border-r bg-background p-4 flex flex-col h-full">
+    <div className="w-64 border-r border-border bg-background p-4 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-6">
         <Link href="/" className="flex items-center gap-2">
           <img src="/gpthree-logo.svg" alt="GPThree" className="h-8 w-8" />
-          <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">
+          <span className="self-center text-2xl font-semibold whitespace-nowrap text-foreground">
             GPThree
           </span>
         </Link>
@@ -33,7 +33,7 @@ export function Sidebar() {
 
       <Button
         variant="outline"
-        className="w-full justify-start gap-2 mb-6 bg-white"
+        className="w-full justify-start gap-2 mb-6 bg-card hover:bg-muted"
       >
         <Plus className="h-4 w-4" />
         New Thread
@@ -42,7 +42,7 @@ export function Sidebar() {
 
       <div className="flex-1">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium">Recent</span>
+          <span className="text-sm font-medium text-foreground">Recent</span>
           <span className="text-xs text-muted-foreground">3 chats</span>
         </div>
         <div className="space-y-2">
@@ -50,19 +50,26 @@ export function Sidebar() {
             <Link
               key={i}
               href="#"
-              className="block text-sm p-2 rounded-lg hover:bg-teal-50"
+              className="block text-sm p-2 rounded-lg hover:bg-secondary/20 transition-colors"
             >
-              <div className="font-medium truncate">{chat.title}</div>
+              <div className="font-medium truncate text-foreground">{chat.title}</div>
               <div className="text-xs text-muted-foreground">{chat.time}</div>
             </Link>
           ))}
         </div>
       </div>
 
-      {ready && authenticated && <Button onClick={logout}>Logout</Button>}
-      <div className="flex items-center gap-2 pt-4 border-t mt-3">
+      {ready && authenticated && (
+        <Button 
+          onClick={logout}
+          className="mb-3 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 text-white"
+        >
+          Logout
+        </Button>
+      )}
+      <div className="flex items-center gap-2 pt-4 border-t border-border mt-3">
         <div className="flex-1 self-center">
-          <div className="font-thin text-xs">Safe and Secure</div>
+          <div className="font-thin text-xs text-foreground">Safe and Secure</div>
           <div className="text-xs text-muted-foreground">Pro</div>
         </div>
         <Button
