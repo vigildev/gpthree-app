@@ -64,14 +64,15 @@ export const createThread = action({
     prompt: v.string(),
     model: v.optional(v.string()),
     userId: v.string(),
+    systemEnhancement: v.optional(v.string()),
   },
-  handler: async (ctx, { prompt, model, userId }) => {
+  handler: async (ctx, { prompt, model, userId, systemEnhancement }) => {
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
     
     const modelId = model || defaultModelId;
-    const agent = createGPThreeAgent(modelId);
+    const agent = createGPThreeAgent(modelId, systemEnhancement);
     
     // Generate a title from the first few words of the prompt
     const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
@@ -92,10 +93,11 @@ export const continueThread = action({
     prompt: v.string(),
     threadId: v.string(),
     model: v.optional(v.string()),
+    systemEnhancement: v.optional(v.string()),
   },
-  handler: async (ctx, { prompt, threadId, model }) => {
+  handler: async (ctx, { prompt, threadId, model, systemEnhancement }) => {
     const modelId = model || defaultModelId;
-    const agent = createGPThreeAgent(modelId);
+    const agent = createGPThreeAgent(modelId, systemEnhancement);
     const { thread } = await agent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
     return result.text;
