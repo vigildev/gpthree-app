@@ -82,19 +82,19 @@ export function Dashboard() {
     <div className="p-12 max-w-5xl mx-auto">
       <div className="mb-16">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">
             <img
               src="/gpthree-logo-white.svg"
               alt="GPThree"
               className="h-8 w-8"
             />
           </div>
-          <h1 className="text-5xl font-light text-gray-900 tracking-tight">
+          <h1 className="text-5xl font-light text-foreground tracking-tight">
             GPThree
           </h1>
         </div>
-        <p className="text-gray-500 text-lg font-light ml-16">
-          Privacy-first crypto intelligence
+        <p className="text-muted-foreground text-lg font-light ml-16">
+          Privacy-first AI intelligence
         </p>
       </div>
 
@@ -106,14 +106,14 @@ export function Dashboard() {
               key={index}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
             >
-              <div className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
+              <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                 {msg.role === "user" ? "You" : "GPThree"}
               </div>
               <div
                 className={`p-6 rounded-3xl ${
                   msg.role === "user"
-                    ? "bg-gray-50 text-gray-800"
-                    : "bg-white border border-gray-100 text-gray-900 shadow-sm"
+                    ? "bg-secondary/10 text-foreground border border-secondary/20"
+                    : "bg-card border border-border text-card-foreground shadow-sm"
                 }`}
               >
                 {msg.content}
@@ -122,23 +122,25 @@ export function Dashboard() {
           ))}
           {isLoading && (
             <div className="mr-12">
-              <div className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
+              <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                 GPThree
               </div>
-              <div className="p-6 rounded-3xl bg-white border border-gray-100 shadow-sm">
+              <div className="p-6 rounded-3xl bg-card border border-border shadow-sm">
                 <div className="flex items-center space-x-3">
                   <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
                     <div
-                      className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"
+                      className="w-2 h-2 bg-secondary/60 rounded-full animate-pulse"
                       style={{ animationDelay: "0.2s" }}
                     ></div>
                     <div
-                      className="w-2 h-2 bg-gray-300 rounded-full animate-pulse"
+                      className="w-2 h-2 bg-accent/60 rounded-full animate-pulse"
                       style={{ animationDelay: "0.4s" }}
                     ></div>
                   </div>
-                  <span className="text-gray-500 font-light">Thinking...</span>
+                  <span className="text-muted-foreground font-light">
+                    Thinking...
+                  </span>
                 </div>
               </div>
             </div>
@@ -150,8 +152,8 @@ export function Dashboard() {
       <div className="mb-16">
         <div className="mx-auto relative">
           <Input
-            placeholder="Ask about DeFi strategies, privacy coins, or blockchain analysis..."
-            className="w-full h-12 pl-4 pr-14 bg-white border border-gray-300 hover:border-gray-400 focus:border-gray-500 focus:ring-0 text-gray-900 placeholder:text-gray-500 rounded-full text-base shadow-sm"
+            placeholder="Ask anything... I'm your privacy-focused AI assistant"
+            className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
@@ -160,7 +162,7 @@ export function Dashboard() {
           <Button
             onClick={handleSendMessage}
             disabled={isLoading || !message.trim()}
-            className="absolute right-6 top-4 h-8 w-8 p-0 bg-black hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-full transition-colors flex items-center justify-center"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 disabled:from-muted disabled:to-muted text-white rounded-full transition-colors flex items-center justify-center"
           >
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -172,19 +174,19 @@ export function Dashboard() {
         <div className="flex items-center justify-between mt-9 ml-6">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Lock className="h-3 w-3 text-gray-400" />
-              <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              <Lock className="h-3 w-3 text-primary" />
+              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                 End-to-end encrypted
               </span>
             </div>
-            <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-            <span className="text-xs text-gray-500">
+            <span className="w-1 h-1 bg-muted-foreground rounded-full"></span>
+            <span className="text-xs text-muted-foreground">
               Using{" "}
               {selectedModel.split("/")[1]?.replace(/-/g, " ") || selectedModel}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Brain className="h-3 w-3 text-gray-400" />
+            <Brain className="h-3 w-3 text-secondary" />
             <ModelSelector
               selectedModel={selectedModel}
               onModelSelect={handleModelChange}
@@ -196,25 +198,31 @@ export function Dashboard() {
 
       {/* Quick Actions */}
       <div className="mb-20">
-        <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-6">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
           Quick Start
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { text: "Privacy Analysis", desc: "Transaction privacy audit" },
-            { text: "DeFi Strategy", desc: "Yield optimization guide" },
-            { text: "Model Comparison", desc: "AI model benchmarks" },
-            { text: "Security Review", desc: "Smart contract analysis" },
+            { text: "Code Review", desc: "Analyze and improve code quality" },
+            {
+              text: "Data Analysis",
+              desc: "Process and visualize data insights",
+            },
+            { text: "Research Help", desc: "Deep research with citations" },
+            {
+              text: "Writing Assistant",
+              desc: "Professional content creation",
+            },
           ].map((action) => (
             <button
               key={action.text}
-              className="p-6 text-left bg-white border border-gray-100 hover:border-gray-200 hover:shadow-sm rounded-2xl transition-all duration-200 group"
+              className="p-6 text-left bg-card border border-border hover:border-primary/50 hover:shadow-md rounded-2xl transition-all duration-200 group"
               onClick={() => setMessage(action.text)}
             >
-              <div className="font-medium text-gray-900 text-sm mb-1">
+              <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
                 {action.text}
               </div>
-              <div className="text-xs text-gray-500 font-light">
+              <div className="text-xs text-muted-foreground font-light">
                 {action.desc}
               </div>
             </button>
@@ -223,24 +231,24 @@ export function Dashboard() {
       </div>
 
       {/* Tools Section */}
-      <div className="space-y-8">
+      {/* <div className="space-y-8">
         <div>
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
             Available Tools
           </h3>
-          <p className="text-gray-500 font-light">
-            18 integrated models and crypto analysis tools
+          <p className="text-muted-foreground font-light">
+            18+ AI models and specialized tools at your disposal
           </p>
         </div>
 
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="bg-gray-50 border-0 h-auto p-1 rounded-xl">
-            {["All", "Privacy", "DeFi", "Models", "Analytics", "Security"].map(
+          <TabsList className="bg-muted border-0 h-auto p-1 rounded-xl">
+            {["All", "Coding", "Writing", "Research", "Analysis", "Privacy"].map(
               (tab) => (
                 <TabsTrigger
                   key={tab}
                   value={tab.toLowerCase()}
-                  className="rounded-lg px-6 py-3 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm transition-all duration-200 font-light"
+                  className="rounded-lg px-6 py-3 data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm transition-all duration-200 font-light"
                 >
                   {tab}
                 </TabsTrigger>
@@ -251,19 +259,19 @@ export function Dashboard() {
 
         <div className="grid md:grid-cols-2 gap-6">
           <IntegrationCard
-            icon="🔒"
-            title="Privacy Analysis"
-            description="Analyze transactions for privacy leaks and suggest improvements"
-            tag="privacy"
+            icon="🧠"
+            title="Multi-Model Intelligence"
+            description="Compare responses from multiple AI models for any task"
+            tag="intelligence"
           />
           <IntegrationCard
-            icon="🤖"
-            title="LLM Aggregator"
-            description="Compare responses from multiple AI models for crypto queries"
-            tag="llms"
+            icon="🔐"
+            title="Privacy-First Processing"
+            description="Your data stays private with end-to-end encryption"
+            tag="privacy"
           />
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
