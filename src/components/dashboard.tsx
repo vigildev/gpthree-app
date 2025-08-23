@@ -18,24 +18,33 @@ interface DashboardProps {
 
 export function Dashboard({ threadId: currentThreadId, onThreadChange }: DashboardProps) {
   const [message, setMessage] = useState("");
-  const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.7-sonnet"
   );
-  const [chatHistory, setChatHistory] = useState<
-    Array<{ role: "user" | "assistant"; content: string }>
-  >([]);
 
   const createThread = useAction(api.agents.createThread);
   const continueThread = useAction(api.agents.continueThread);
+  
+  // Use the thread messages hook to get real-time messages for the current thread
+  const messages = useThreadMessages(
+    api.agents.listThreadMessages,
+    currentThreadId ? { threadId: currentThreadId } : "skip",
+    {
+      initialNumItems: 50,
+      stream: true,
+    }
+  );
+  
+  // Convert to UI messages format
+  const uiMessages = currentThreadId && messages.results 
+    ? toUIMessages(messages.results) 
+    : [];
 
   // Handle model change - start new conversation
   const handleModelChange = (newModel: string) => {
     setSelectedModel(newModel);
-    // Start fresh conversation when model changes
-    setThreadId(null);
-    setChatHistory([]);
+    // Model changes within the same thread are fine
   };
 
   const handleSendMessage = async () => {
@@ -45,40 +54,27 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
     setMessage("");
     setIsLoading(true);
 
-    // Add user message to chat history
-    setChatHistory((prev) => [...prev, { role: "user", content: userMessage }]);
-
     try {
-      if (threadId) {
+      if (currentThreadId) {
+        // Continue existing thread
         const response = await continueThread({
           prompt: userMessage,
-          threadId,
+          threadId: currentThreadId,
           model: selectedModel,
         });
-        setChatHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: response },
-        ]);
+        // The message will appear automatically via useThreadMessages hook
       } else {
+        // Create new thread
         const response = await createThread({
           prompt: userMessage,
           model: selectedModel,
         });
-        setThreadId(response.threadId);
-        setChatHistory((prev) => [
-          ...prev,
-          { role: "assistant", content: response.text },
-        ]);
+        // Notify parent component about the new thread
+        onThreadChange?.(response.threadId);
       }
     } catch (error) {
       console.error("Error:", error);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-        },
-      ]);
+      // Could show an error toast here
     } finally {
       setIsLoading(false);
     }
@@ -105,11 +101,11 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
       </div>
 
       {/* Chat History */}
-      {chatHistory.length > 0 && (
+      {uiMessages.length > 0 && (
         <div className="mb-12 space-y-6">
-          {chatHistory.map((msg, index) => (
+          {uiMessages.map((msg) => (
             <div
-              key={index}
+              key={msg.key}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
             >
               <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
@@ -123,6 +119,12 @@ export function Dashboard({ threadId: currentThreadId, onThreadChange }: Dashboa
                 }`}
               >
                 {msg.content}
+                {msg.status === "streaming" && (
+                  <div className="mt-2 flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-muted-foreground">Streaming...</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
