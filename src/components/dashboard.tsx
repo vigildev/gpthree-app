@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
@@ -26,6 +26,12 @@ export function Dashboard({
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.7-sonnet"
   );
+  const [chatMessages, setChatMessages] = useState<Array<{
+    key: string;
+    role: "user" | "assistant";
+    content: string;
+    status: "complete";
+  }>>([]);
   
   console.log({ ready, authenticated, user });
 
@@ -69,6 +75,15 @@ export function Dashboard({
     setMessage("");
     setIsLoading(true);
 
+    // Add user message to chat immediately
+    const userChatMessage = {
+      key: `user-${Date.now()}`,
+      role: "user" as const,
+      content: userMessage,
+      status: "complete" as const,
+    };
+    setChatMessages(prev => [...prev, userChatMessage]);
+
     try {
       if (currentThreadId) {
         // Continue existing thread
@@ -78,7 +93,15 @@ export function Dashboard({
           model: selectedModel,
         });
         console.log("Continue thread response:", response);
-        // The message will appear automatically via requery
+        
+        // Add AI response to chat
+        const aiChatMessage = {
+          key: `ai-${Date.now()}`,
+          role: "assistant" as const,
+          content: response,
+          status: "complete" as const,
+        };
+        setChatMessages(prev => [...prev, aiChatMessage]);
       } else {
         // Create new thread
         const response = await createThread({
@@ -87,12 +110,30 @@ export function Dashboard({
           userId: user.id,
         });
         console.log("Create thread response:", response);
+        
+        // Add AI response to chat
+        const aiChatMessage = {
+          key: `ai-${Date.now()}`,
+          role: "assistant" as const,
+          content: response.text,
+          status: "complete" as const,
+        };
+        setChatMessages(prev => [...prev, aiChatMessage]);
+        
         // Notify parent component about the new thread
         onThreadChange?.(response.threadId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      // Could show an error toast here
+      
+      // Add error message to chat
+      const errorChatMessage = {
+        key: `error-${Date.now()}`,
+        role: "assistant" as const,
+        content: "Sorry, there was an error processing your request. Please try again.",
+        status: "complete" as const,
+      };
+      setChatMessages(prev => [...prev, errorChatMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -119,9 +160,9 @@ export function Dashboard({
       </div>
 
       {/* Chat History */}
-      {uiMessages.length > 0 && (
+      {chatMessages.length > 0 && (
         <div className="mb-12 space-y-6">
-          {uiMessages.map((msg) => (
+          {chatMessages.map((msg) => (
             <div
               key={msg.key}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
