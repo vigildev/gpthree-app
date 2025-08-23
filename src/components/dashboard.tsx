@@ -6,11 +6,17 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
-import { useState } from "react";
-import { useAction } from "convex/react";
+import { useState, useEffect } from "react";
+import { useAction, useQuery } from "convex/react";
+import { useThreadMessages, toUIMessages } from "@convex-dev/agent/react";
 import { api } from "../../convex/_generated/api";
 
-export function Dashboard() {
+interface DashboardProps {
+  threadId?: string;
+  onThreadChange?: (threadId: string) => void;
+}
+
+export function Dashboard({ threadId: currentThreadId, onThreadChange }: DashboardProps) {
   const [message, setMessage] = useState("");
   const [threadId, setThreadId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
