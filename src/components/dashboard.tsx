@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
-import { QUICK_START_ACTIONS } from "@/constants/quick-actions";
+import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 
 interface DashboardProps {
   threadId?: string;
@@ -35,6 +35,7 @@ export function Dashboard({
       status: "complete";
     }>
   >([]);
+  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickAction | null>(null);
 
   console.log({ ready, authenticated, user });
 
@@ -115,6 +116,7 @@ export function Dashboard({
           prompt: userMessage,
           threadId: currentThreadId,
           model: selectedModel,
+          systemEnhancement: selectedQuickAction?.systemEnhancement,
         });
         console.log("Continue thread response:", response);
 
@@ -132,6 +134,7 @@ export function Dashboard({
           prompt: userMessage,
           model: selectedModel,
           userId: user.id,
+          systemEnhancement: selectedQuickAction?.systemEnhancement,
         });
         console.log("Create thread response:", response);
 
@@ -244,9 +247,30 @@ export function Dashboard({
 
       {/* Input Area */}
       <div className="mb-16">
+        {selectedQuickAction && (
+          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-primary rounded-full"></div>
+                <span className="text-sm font-medium text-primary">
+                  {selectedQuickAction.text} Mode Active
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedQuickAction(null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
         <div className="mx-auto relative">
           <Input
-            placeholder="Ask anything... I'm your privacy-focused AI assistant"
+            placeholder={selectedQuickAction 
+              ? `Ask anything about ${selectedQuickAction.text.toLowerCase()}...`
+              : "Ask anything... I'm your privacy-focused AI assistant"
+            }
             className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -299,8 +323,15 @@ export function Dashboard({
           {QUICK_START_ACTIONS.map((action) => (
             <button
               key={action.text}
-              className="p-6 text-left bg-card border border-border hover:border-primary/50 hover:shadow-md rounded-2xl transition-all duration-200 group"
-              onClick={() => setMessage(action.prompt)}
+              className={`p-6 text-left rounded-2xl transition-all duration-200 group ${
+                selectedQuickAction?.text === action.text
+                  ? "bg-primary/5 border border-primary/30 shadow-md"
+                  : "bg-card border border-border hover:border-primary/50 hover:shadow-md"
+              }`}
+              onClick={() => {
+                setSelectedQuickAction(action);
+                setMessage(""); // Clear input when selecting an action
+              }}
             >
               <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
                 {action.text}
