@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
+import { QUICK_START_ACTIONS } from "@/constants/quick-actions";
 
 interface DashboardProps {
   threadId?: string;
@@ -295,22 +296,11 @@ export function Dashboard({
           Quick Start
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { text: "Code Review", desc: "Analyze and improve code quality" },
-            {
-              text: "Data Analysis",
-              desc: "Process and visualize data insights",
-            },
-            { text: "Research Help", desc: "Deep research with citations" },
-            {
-              text: "Writing Assistant",
-              desc: "Professional content creation",
-            },
-          ].map((action) => (
+          {QUICK_START_ACTIONS.map((action) => (
             <button
               key={action.text}
               className="p-6 text-left bg-card border border-border hover:border-primary/50 hover:shadow-md rounded-2xl transition-all duration-200 group"
-              onClick={() => setMessage(action.text)}
+              onClick={() => setMessage(action.prompt)}
             >
               <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
                 {action.text}
