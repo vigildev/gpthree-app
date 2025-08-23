@@ -62,14 +62,16 @@ export function Dashboard({
     currentThreadId ? { threadId: currentThreadId } : "skip"
   );
 
-  // Convert messages to UI format
+  // Convert messages to UI format and ensure proper ordering (newest at bottom)
   const persistedMessages = messages
-    ? messages.map((msg: any, index: number) => ({
-        key: `${msg._id || index}`,
-        role: msg.role || (msg.author === "user" ? "user" : "assistant"),
-        content: msg.content || msg.text || "",
-        status: "complete" as const,
-      }))
+    ? messages
+        .sort((a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)) // Sort by creation time
+        .map((msg: any, index: number) => ({
+          key: `${msg._id || index}`,
+          role: msg.author === "user" ? "user" : "assistant",
+          content: msg.content || msg.text || "",
+          status: "complete" as const,
+        }))
     : [];
 
   // Clear local chat messages when thread changes
