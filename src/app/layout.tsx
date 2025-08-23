@@ -3,6 +3,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { PrivyProvider } from "@privy-io/react-auth";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ThemeProvider } from "@/components/theme-provider";
 import { env } from "@/env.mjs";
 import "./globals.css";
 
@@ -30,33 +31,40 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ConvexProvider client={convex}>
-          <PrivyProvider
-            appId={PRIVY_APP_ID}
-            config={{
-              // Customize Privy's appearance in your app
-              appearance: {
-                theme: "light",
-                accentColor: "#676FFF",
-                // TODO: replace with proper logo
-                logo: "https://867bw7rqa6.ufs.sh/f/cGZ8tFrF8tOmH78IKBXM1SzoQ3uEIKNXedD6tx85Gb72WpcT",
-              },
-              // Create embedded wallets for users who don't have a wallet
-              embeddedWallets: {
-                solana: {
-                  createOnLogin: "users-without-wallets", // defaults to 'off'
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <ConvexProvider client={convex}>
+            <PrivyProvider
+              appId={PRIVY_APP_ID}
+              config={{
+                // Customize Privy's appearance in your app
+                appearance: {
+                  theme: "light",
+                  accentColor: "#676FFF",
+                  // TODO: replace with proper logo
+                  logo: "https://867bw7rqa6.ufs.sh/f/cGZ8tFrF8tOmH78IKBXM1SzoQ3uEIKNXedD6tx85Gb72WpcT",
                 },
-              },
-              loginMethods: ["email", "wallet"],
-            }}
-          >
-            {children}
-          </PrivyProvider>
-        </ConvexProvider>
+                // Create embedded wallets for users who don't have a wallet
+                embeddedWallets: {
+                  solana: {
+                    createOnLogin: "users-without-wallets", // defaults to 'off'
+                  },
+                },
+                loginMethods: ["email", "wallet"],
+              }}
+            >
+              {children}
+            </PrivyProvider>
+          </ConvexProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

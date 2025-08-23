@@ -16,8 +16,8 @@ export default function Home() {
           <Dashboard />
         ) : (
           <div className="h-full flex flex-col items-center justify-start pt-24 gap-6">
-            <h1 className="text-purple-500 text-5xl font-semibold">GPThree</h1>
-            <p className="text-pretty tracking-wide">
+            <h1 className="text-5xl font-semibold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">GPThree</h1>
+            <p className="text-pretty tracking-wide text-muted-foreground">
               A privacy-first crypto-native LLM aggregator.
             </p>
             <LoginButton />
