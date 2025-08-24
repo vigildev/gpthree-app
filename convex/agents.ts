@@ -108,9 +108,9 @@ export const continueThread = action({
 export const createNewThread = action({
   args: {
     title: v.optional(v.string()),
+    userId: v.string(),
   },
-  handler: async (ctx, { title }) => {
-    const userId = await getAuthUserId(ctx);
+  handler: async (ctx, { title, userId }) => {
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
