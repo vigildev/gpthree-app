@@ -19,7 +19,7 @@ import {
   partiallySignTransactionMessageWithSigners,
   type Rpc,
   createNoopSigner,
-  type TransactionSigner
+  type TransactionSigner,
 } from "@solana/kit";
 import {
   fetchMint,
@@ -235,8 +235,11 @@ async function createAtaAndTransferInstructions(
       "@solana-program/system"
     );
 
+    // Create a proper signer for the client address that will require signing
+    const clientSigner = createNoopSigner(clientAddress);
+
     const solTransferInstruction = getTransferSolInstruction({
-      source: createNoopSigner(clientAddress),
+      source: clientSigner,
       destination: payTo as Address,
       amount: BigInt(amount),
     });
@@ -457,14 +460,39 @@ async function convertSolanaKitToWeb3js(
       });
 
       // Convert Solana Kit instruction to web3.js TransactionInstruction
+      // Need to properly detect signers based on the instruction type
+      const accountMetas = (kitInstruction.accounts || []).map(
+        (account: any) => {
+          const pubkey = new PublicKey(account.address);
+          const isWritable = account.role?.includes?.("writable") || false;
+          let isSigner = account.role?.includes?.("signer") || false;
+
+          // For System Program transfer instructions, the source account must be a signer
+          if (
+            kitInstruction.programAddress ===
+              "11111111111111111111111111111111" &&
+            kitInstruction.accounts &&
+            kitInstruction.accounts.length >= 2 &&
+            account === kitInstruction.accounts[0]
+          ) {
+            isSigner = true; // Source account in system transfer must sign
+            console.log(
+              `Marking account ${account.address} as signer for system transfer`
+            );
+          }
+
+          return {
+            pubkey,
+            isSigner,
+            isWritable,
+          };
+        }
+      );
+
       const web3Instruction = new TransactionInstruction({
         programId: new PublicKey(kitInstruction.programAddress),
         data: Buffer.from(kitInstruction.data || []),
-        keys: (kitInstruction.accounts || []).map((account: any) => ({
-          pubkey: new PublicKey(account.address),
-          isSigner: account.role?.includes?.("signer") || false,
-          isWritable: account.role?.includes?.("writable") || false,
-        })),
+        keys: accountMetas,
       });
 
       web3Instructions.push(web3Instruction);

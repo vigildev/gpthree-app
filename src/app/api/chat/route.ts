@@ -41,13 +41,19 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     // }
 
     console.log("Sending payment payload to facilitator verify endpoint");
+    console.log("Full payload being sent to facilitator:", JSON.stringify(paymentPayload, null, 2));
+    
+    // Log the exact JSON string being sent
+    const payloadString = JSON.stringify(paymentPayload);
+    console.log("JSON string length:", payloadString.length);
+    console.log("First 500 chars of JSON:", payloadString.substring(0, 500));
 
     const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/verify`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(paymentPayload),
+      body: payloadString,
     });
 
     console.log("Facilitator response status:", response.status);
