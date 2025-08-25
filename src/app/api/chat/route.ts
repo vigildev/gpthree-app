@@ -20,17 +20,46 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     console.log('Verifying payment with facilitator...');
     console.log('Payment header:', paymentHeader.substring(0, 100) + '...');
     
+    // Decode the base64 payment payload
+    const paymentPayload = JSON.parse(Buffer.from(paymentHeader, 'base64').toString('utf8'));
+    console.log('Decoded payment payload:', JSON.stringify(paymentPayload, null, 2));
+    
+    // According to the official x402 PR #283, send only the payment payload to /verify
+    // The facilitator expects the payload structure:
+    // {
+    //   "x402Version": 1,
+    //   "scheme": "exact", 
+    //   "network": "solana-devnet",
+    //   "payload": {
+    //     "transaction": "base64 encoded transaction"
+    //   }
+    // }
+    
+    console.log('Sending payment payload to facilitator verify endpoint');
+    
     const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-PAYMENT': paymentHeader,
       },
+      body: JSON.stringify(paymentPayload),
     });
     
     console.log('Facilitator response status:', response.status);
     const responseText = await response.text();
     console.log('Facilitator response body:', responseText);
+    
+    // If verification fails, log additional debugging info
+    if (!response.ok) {
+      console.log('Payment verification failed!');
+      console.log('Request URL:', `${PAYMENT_CONFIG.facilitatorUrl}/verify`);
+      console.log('Request payload structure:');
+      console.log('- x402Version:', paymentPayload.x402Version);
+      console.log('- scheme:', paymentPayload.scheme);
+      console.log('- network:', paymentPayload.network);
+      console.log('- payload.transaction length:', paymentPayload.payload?.transaction?.length);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+    }
     
     return response.ok;
   } catch (error) {
@@ -39,8 +68,40 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
   }
 }
 
+// Helper function to get fee payer from facilitator's /supported endpoint
+async function getFeePayerFromFacilitator(): Promise<string> {
+  try {
+    const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/supported`);
+    if (!response.ok) {
+      throw new Error(`Facilitator /supported returned ${response.status}`);
+    }
+    
+    const supportedData = await response.json();
+    console.log('Facilitator supported data:', JSON.stringify(supportedData, null, 2));
+    
+    // Look for Solana devnet support and extract fee payer from kinds array
+    const solanaSupport = supportedData.kinds?.find((kind: any) => 
+      kind.network === PAYMENT_CONFIG.network && kind.scheme === 'exact'
+    );
+    
+    if (solanaSupport && solanaSupport.extra && solanaSupport.extra.feePayer) {
+      console.log('Found fee payer from facilitator:', solanaSupport.extra.feePayer);
+      return solanaSupport.extra.feePayer;
+    }
+    
+    // Fallback to hardcoded fee payer if not found in /supported response
+    return '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+  } catch (error) {
+    console.error('Failed to fetch fee payer from facilitator:', error);
+    // Fallback to hardcoded fee payer
+    return '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
+  }
+}
+
 // Helper function to create 402 response with payment requirements
-function create402Response(): NextResponse {
+async function create402Response(): Promise<NextResponse> {
+  const feePayer = await getFeePayerFromFacilitator();
+  
   const paymentRequirements = {
     scheme: 'exact',
     network: PAYMENT_CONFIG.network,
@@ -50,10 +111,10 @@ function create402Response(): NextResponse {
     mimeType: 'application/json',
     payTo: PAYMENT_CONFIG.recipientAddress,
     maxTimeoutSeconds: 300,
-    asset: 'So11111111111111111111111111111111111111112', // SOL mint address for devnet
+    asset: 'native', // Use native SOL instead of wrapped SOL for simplicity
     outputSchema: null,
     extra: {
-      feePayer: PAYMENT_CONFIG.recipientAddress, // Using recipient as fee payer for now
+      feePayer, // Dynamic fee payer from facilitator
     },
   };
 
@@ -78,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     
     if (!paymentHeader) {
       // No payment provided, return 402 Payment Required
-      return create402Response();
+      return await create402Response();
     }
 
     // Verify payment with facilitator
