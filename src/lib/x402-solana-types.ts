@@ -16,18 +16,32 @@ export const NetworkSchema = z.enum([
 export type Network = z.infer<typeof NetworkSchema>;
 
 // Payment requirements schema with Solana support
+// Note: x402Version is not part of individual payment requirements,
+// it's part of the parent 402 response object
 export const PaymentRequirementsSchema = z.object({
-  x402Version: z.number(),
   scheme: z.literal("exact"),
   network: NetworkSchema,
   asset: z.string().optional(),
   maxAmountRequired: z.string(),
   payTo: z.string(),
+  resource: z.string().optional(),
+  description: z.string().optional(),
+  mimeType: z.string().optional(),
+  maxTimeoutSeconds: z.number().optional(),
   extra: z.record(z.unknown()).optional(),
   outputSchema: z.record(z.unknown()).nullable().optional()
 });
 
 export type PaymentRequirements = z.infer<typeof PaymentRequirementsSchema>;
+
+// 402 Payment Required response schema
+export const Payment402ResponseSchema = z.object({
+  x402Version: z.number(),
+  accepts: z.array(PaymentRequirementsSchema),
+  error: z.string().optional()
+});
+
+export type Payment402Response = z.infer<typeof Payment402ResponseSchema>;
 
 // Payment payload schemas for different networks
 export const EVMPaymentPayloadSchema = z.object({
