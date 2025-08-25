@@ -24,7 +24,7 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Payment': paymentHeader,
+        'X-PAYMENT': paymentHeader,
       },
     });
     
@@ -73,8 +73,8 @@ function create402Response(): NextResponse {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Check for payment header
-    const paymentHeader = request.headers.get('X-Payment');
+    // Check for payment header - x402 uses 'X-PAYMENT' (uppercase)
+    const paymentHeader = request.headers.get('X-PAYMENT') || request.headers.get('x-payment');
     
     if (!paymentHeader) {
       // No payment provided, return 402 Payment Required
