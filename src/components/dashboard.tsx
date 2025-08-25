@@ -12,6 +12,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
+import { WalletDebug } from "@/components/wallet-debug";
 
 interface DashboardProps {
   threadId?: string;
@@ -163,6 +164,9 @@ export function Dashboard({
 
   return (
     <div className="p-12 max-w-5xl mx-auto">
+      {/* Debug Component - Remove this after testing */}
+      <WalletDebug />
+      
       <div className="mb-16">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">

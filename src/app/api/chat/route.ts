@@ -17,6 +17,9 @@ const PAYMENT_CONFIG = {
 // Helper function to verify payment with facilitator
 async function verifyPayment(paymentHeader: string): Promise<boolean> {
   try {
+    console.log('Verifying payment with facilitator...');
+    console.log('Payment header:', paymentHeader.substring(0, 100) + '...');
+    
     const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/verify`, {
       method: 'POST',
       headers: {
@@ -24,6 +27,11 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
         'X-Payment': paymentHeader,
       },
     });
+    
+    console.log('Facilitator response status:', response.status);
+    const responseText = await response.text();
+    console.log('Facilitator response body:', responseText);
+    
     return response.ok;
   } catch (error) {
     console.error('Payment verification failed:', error);
@@ -33,29 +41,34 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
 
 // Helper function to create 402 response with payment requirements
 function create402Response(): NextResponse {
-  const paymentRequired = {
+  const paymentRequirements = {
     scheme: 'exact',
-    amount: PAYMENT_CONFIG.amount.toString(),
-    currency: PAYMENT_CONFIG.currency,
     network: PAYMENT_CONFIG.network,
-    facilitator: PAYMENT_CONFIG.facilitatorUrl,
-    recipient: PAYMENT_CONFIG.recipientAddress,
-    resource: {
-      url: '/api/chat',
-      description: PAYMENT_CONFIG.description,
-      mimeType: 'application/json',
+    maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
+    resource: 'http://localhost:3000/api/chat', // Full URL as per spec
+    description: PAYMENT_CONFIG.description,
+    mimeType: 'application/json',
+    payTo: PAYMENT_CONFIG.recipientAddress,
+    maxTimeoutSeconds: 300,
+    asset: 'So11111111111111111111111111111111111111112', // SOL mint address for devnet
+    outputSchema: null,
+    extra: {
+      feePayer: PAYMENT_CONFIG.recipientAddress, // Using recipient as fee payer for now
     },
   };
 
-  return NextResponse.json(
-    { error: 'Payment required' },
-    {
-      status: 402,
-      headers: {
-        'X-Payment-Required': JSON.stringify(paymentRequired),
-      },
-    }
-  );
+  const responseBody = {
+    x402Version: 1,
+    accepts: [paymentRequirements],
+    error: 'Payment required'
+  };
+
+  return NextResponse.json(responseBody, {
+    status: 402,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
