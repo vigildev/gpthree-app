@@ -10,8 +10,26 @@ const PAYMENT_CONFIG = {
   currency: "SOL",
   network: "solana-devnet",
   facilitatorUrl: "https://facilitator.payai.network",
-  recipientAddress: process.env.TREASURY_WALLET_ADDRESS!,
+  recipientAddress: process.env.TREASURY_WALLET_ADDRESS || "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4",
   description: "AI Chat Request - GPThree Assistant",
+};
+
+const feePayer = await getFeePayerFromFacilitator();
+
+const paymentRequirements = {
+  scheme: "exact",
+  network: PAYMENT_CONFIG.network,
+  maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
+  resource: "http://localhost:3000/api/chat", // Full URL as per spec
+  description: PAYMENT_CONFIG.description,
+  mimeType: "application/json",
+  payTo: PAYMENT_CONFIG.recipientAddress,
+  maxTimeoutSeconds: 300,
+  asset: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Use native SOL instead of wrapped SOL for simplicity
+  outputSchema: {},
+  extra: {
+    feePayer, // Dynamic fee payer from facilitator
+  },
 };
 
 // Helper function to verify payment with facilitator
@@ -29,24 +47,18 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
       JSON.stringify(paymentPayload, null, 2)
     );
 
-    // According to the official x402 PR #283, send only the payment payload to /verify
-    // The facilitator expects the payload structure:
-    // {
-    //   "x402Version": 1,
-    //   "scheme": "exact",
-    //   "network": "solana-devnet",
-    //   "payload": {
-    //     "transaction": "base64 encoded transaction"
-    //   }
-    // }
-
-    console.log("Sending payment payload to facilitator verify endpoint");
-    console.log("Full payload being sent to facilitator:", JSON.stringify(paymentPayload, null, 2));
+    console.log("preparing payload to send to facilitator")
+    const verifyPayload = {
+      x402Version: paymentPayload.x402Version,
+      paymentPayload: paymentPayload,
+      paymentRequirements,
+    }
+    console.log("verifyPayload", verifyPayload)
+    console.log("Sending verify payload to facilitator verify endpoint");
+    console.log("Full payload being sent to facilitator:", JSON.stringify(verifyPayload, null, 2));
     
     // Log the exact JSON string being sent
-    const payloadString = JSON.stringify(paymentPayload);
-    console.log("JSON string length:", payloadString.length);
-    console.log("First 500 chars of JSON:", payloadString.substring(0, 500));
+    const payloadString = JSON.stringify(verifyPayload);
 
     const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/verify`, {
       method: "POST",
@@ -64,6 +76,71 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     if (!response.ok) {
       console.log("Payment verification failed!");
       console.log("Request URL:", `${PAYMENT_CONFIG.facilitatorUrl}/verify`);
+      console.log("Request payload structure:");
+      console.log("- x402Version:", paymentPayload.x402Version);
+      console.log("- scheme:", paymentPayload.scheme);
+      console.log("- network:", paymentPayload.network);
+      console.log(
+        "- payload.transaction length:",
+        paymentPayload.payload?.transaction?.length
+      );
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+    }
+
+    return response.ok;
+  } catch (error) {
+    console.error("Payment verification failed:", error);
+    return false;
+  }
+}
+
+// Helper function to settle payment with facilitator
+async function settlePayment(paymentHeader: string): Promise<boolean> {
+  try {
+    console.log("Settling payment with facilitator...");
+    console.log("Payment header:", paymentHeader.substring(0, 100) + "...");
+
+    // Decode the base64 payment payload
+    const paymentPayload = JSON.parse(
+      Buffer.from(paymentHeader, "base64").toString("utf8")
+    );
+    console.log(
+      "Decoded payment payload:",
+      JSON.stringify(paymentPayload, null, 2)
+    );
+
+    console.log("preparing payload to send to facilitator")
+    const settlePayload = {
+      x402Version: paymentPayload.x402Version,
+      paymentPayload: paymentPayload,
+      paymentRequirements,
+    }
+    console.log("settlePayload", settlePayload)
+    console.log("Sending settle payload to facilitator settle endpoint");
+    console.log("Full payload being sent to facilitator:", JSON.stringify(settlePayload, null, 2));
+    
+    // Log the exact JSON string being sent
+    const payloadString = JSON.stringify(settlePayload);
+
+    const response = await fetch(`${PAYMENT_CONFIG.facilitatorUrl}/settle`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: payloadString,
+    });
+
+    console.log("Facilitator response status:", response.status);
+    const responseText = await response.text();
+    console.log("Facilitator response body:", responseText);
+
+    // If verification fails, log additional debugging info
+    if (!response.ok) {
+      console.log("Payment settlement failed!");
+      console.log("Request URL:", `${PAYMENT_CONFIG.facilitatorUrl}/settle`);
       console.log("Request payload structure:");
       console.log("- x402Version:", paymentPayload.x402Version);
       console.log("- scheme:", paymentPayload.scheme);
@@ -124,23 +201,6 @@ async function getFeePayerFromFacilitator(): Promise<string> {
 
 // Helper function to create 402 response with payment requirements
 async function create402Response(): Promise<NextResponse> {
-  const feePayer = await getFeePayerFromFacilitator();
-
-  const paymentRequirements = {
-    scheme: "exact",
-    network: PAYMENT_CONFIG.network,
-    maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
-    resource: "http://localhost:3000/api/chat", // Full URL as per spec
-    description: PAYMENT_CONFIG.description,
-    mimeType: "application/json",
-    payTo: PAYMENT_CONFIG.recipientAddress,
-    maxTimeoutSeconds: 300,
-    asset: "native", // Use native SOL instead of wrapped SOL for simplicity
-    outputSchema: null,
-    extra: {
-      feePayer, // Dynamic fee payer from facilitator
-    },
-  };
 
   const responseBody = {
     x402Version: 1,
@@ -161,6 +221,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Check for payment header - x402 uses 'X-PAYMENT' (uppercase)
     const paymentHeader =
       request.headers.get("X-PAYMENT") || request.headers.get("x-payment");
+
+    console.log("Payment header:", paymentHeader);
 
     if (!paymentHeader) {
       // No payment provided, return 402 Payment Required
@@ -203,6 +265,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         systemEnhancement,
       });
     }
+
+  // settle payment with facilitator
+  const paymentSettled = await settlePayment(paymentHeader);
+  if (!paymentSettled) {
+    return NextResponse.json({ error: "Payment settlement failed" }, { status: 402 });
+  }
 
     // Return the AI response
     return NextResponse.json(result);
