@@ -144,12 +144,12 @@ export function ModelSelector({
                     model.privacyLevel === "privacy-first" ? "border-l-2 border-green-500/30" : ""
                   }`}
                 >
-                  <div className="flex flex-col gap-1.5 w-full">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-popover-foreground">
-                          {model.name}
-                        </span>
+                  <div className="flex flex-col gap-2 w-full">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-popover-foreground truncate flex-1 min-w-0">
+                        {model.name}
+                      </span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <div className="cursor-help">
@@ -160,12 +160,12 @@ export function ModelSelector({
                             <p>{getPrivacyTooltip(model)}</p>
                           </TooltipContent>
                         </Tooltip>
+                        {model.badge && (
+                          <span className="text-xs text-muted-foreground font-light whitespace-nowrap">
+                            {model.badge}
+                          </span>
+                        )}
                       </div>
-                      {model.badge && (
-                        <span className="text-xs bg-secondary/20 text-secondary px-2 py-0.5 rounded-full font-light">
-                          {model.badge}
-                        </span>
-                      )}
                     </div>
                     <div className="text-xs text-muted-foreground font-light">
                       {model.provider} • {model.pricing} per 1M tokens
@@ -173,7 +173,7 @@ export function ModelSelector({
                     <div className="text-xs text-muted-foreground/80 font-light leading-relaxed max-w-[300px]">
                       {model.description}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         model.dataRetention === "zero" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" :
                         "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
