@@ -10,7 +10,9 @@ import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
+import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
+import { WalletDebug } from "@/components/wallet-debug";
 
 interface DashboardProps {
   threadId?: string;
@@ -55,8 +57,7 @@ export function Dashboard({
     );
   }
 
-  const createThread = useAction(api.agents.createThread);
-  const continueThread = useAction(api.agents.continueThread);
+  const { makePaymentRequest } = usePaidRequest();
 
   // Use regular Convex query to get messages for the current thread
   const messages = useQuery(
@@ -110,45 +111,39 @@ export function Dashboard({
     setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
-      if (currentThreadId) {
-        // Continue existing thread
-        const response = await continueThread({
-          prompt: userMessage,
-          threadId: currentThreadId,
-          model: selectedModel,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Continue thread response:", response);
+      // Use paid API endpoint
+      const requestBody = {
+        prompt: userMessage,
+        model: selectedModel,
+        userId: user.id,
+        systemEnhancement: selectedQuickAction?.systemEnhancement,
+        ...(currentThreadId && { threadId: currentThreadId }),
+      };
 
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content: response,
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
-      } else {
-        // Create new thread
-        const response = await createThread({
-          prompt: userMessage,
-          model: selectedModel,
-          userId: user.id,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Create thread response:", response);
+      const response = await makePaymentRequest('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
 
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content: response.text,
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
 
-        // Notify parent component about the new thread
-        onThreadChange?.(response.threadId);
+      const result = await response.json();
+      console.log("Paid API response:", result);
+
+      // Add AI response to chat
+      const aiChatMessage = {
+        key: `ai-${Date.now()}`,
+        role: "assistant" as const,
+        content: result.text || result, // Handle both create and continue response formats
+        status: "complete" as const,
+      };
+      setChatMessages((prev) => [...prev, aiChatMessage]);
+
+      // If this was a new thread creation, notify parent component
+      if (!currentThreadId && result.threadId) {
+        onThreadChange?.(result.threadId);
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -169,6 +164,9 @@ export function Dashboard({
 
   return (
     <div className="p-12 max-w-5xl mx-auto">
+      {/* Debug Component - Remove this after testing */}
+      <WalletDebug />
+      
       <div className="mb-16">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">

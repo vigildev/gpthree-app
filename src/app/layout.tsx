@@ -6,6 +6,7 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { env } from "@/env.mjs";
 import "./globals.css";
+import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,14 +52,21 @@ export default function RootLayout({
                   accentColor: "#676FFF",
                   // TODO: replace with proper logo
                   logo: "https://867bw7rqa6.ufs.sh/f/cGZ8tFrF8tOmH78IKBXM1SzoQ3uEIKNXedD6tx85Gb72WpcT",
+                  walletChainType: "ethereum-and-solana"
                 },
                 // Create embedded wallets for users who don't have a wallet
                 embeddedWallets: {
+                  createOnLogin: "users-without-wallets",
                   solana: {
-                    createOnLogin: "users-without-wallets", // defaults to 'off'
+                    createOnLogin: "users-without-wallets",
                   },
                 },
-                loginMethods: ["email", "wallet"],
+                externalWallets: {
+                  solana: {
+                    connectors: toSolanaWalletConnectors(),
+                  },
+                },
+                loginMethods: ["email", "wallet", "sms"],
               }}
             >
               {children}
