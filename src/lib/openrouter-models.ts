@@ -32,7 +32,14 @@ export interface OpenRouterApiResponse {
 }
 
 export interface ZDRApiResponse {
-  data: string[]; // Array of model IDs that support Zero Data Retention
+  data: Array<{ 
+    name: string; // Format: "Provider | model/id"
+    model_name: string;
+    context_length: number;
+    pricing: any;
+    provider_name: string;
+    [key: string]: any;
+  }>;
 }
 
 export type PrivacyLevel = "privacy-first" | "standard" | "warning";
@@ -296,6 +303,7 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
  */
 async function fetchZDRModels(): Promise<string[]> {
   try {
+    console.log('Fetching ZDR models from OpenRouter...');
     const response = await fetch('https://openrouter.ai/api/v1/endpoints/zdr', {
       headers: {
         'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
@@ -303,13 +311,45 @@ async function fetchZDRModels(): Promise<string[]> {
       },
     });
 
+    console.log('ZDR API Response Status:', response.status, response.statusText);
+    
     if (!response.ok) {
-      console.warn('ZDR API unavailable, falling back to heuristic classification');
+      const errorText = await response.text();
+      console.warn('ZDR API unavailable:', response.status, errorText);
       return [];
     }
 
     const zdrData: ZDRApiResponse = await response.json();
-    return zdrData.data || [];
+    console.log('ZDR API Response:', {
+      status: response.status,
+      dataCount: zdrData.data?.length || 0,
+      firstFewModels: zdrData.data?.slice(0, 3) || [],
+    });
+    
+    // Debug the structure of the first few objects
+    if (zdrData.data && zdrData.data.length > 0) {
+      const firstObj = zdrData.data[0];
+      console.log('ZDR Object Structure:', {
+        firstObject: firstObj,
+        allKeys: Object.keys(firstObj || {}),
+        keyValuePairs: Object.entries(firstObj || {})
+      });
+    }
+    
+    // Extract model IDs from the response objects
+    // The 'name' field format is: "Provider | model/id"
+    const zdrModelIds = (zdrData.data || [])
+      .map(item => {
+        if (!item.name) return null;
+        // Split on ' | ' and take the second part (the actual model ID)
+        const parts = item.name.split(' | ');
+        return parts.length > 1 ? parts[1] : null;
+      })
+      .filter(Boolean);
+      
+    console.log('ZDR Model IDs extracted:', zdrModelIds.slice(0, 10));
+    
+    return zdrModelIds;
   } catch (error) {
     console.warn('Failed to fetch ZDR models:', error);
     return []; // Return empty array on error, will fallback to heuristic classification
@@ -360,8 +400,32 @@ export async function fetchOpenRouterModels(): Promise<ModelCategory[]> {
       return true;
     });
 
+    console.log('Debug - ZDR Models:', zdrModels.length, 'models');
+    console.log('Debug - First 10 ZDR Model IDs:', zdrModels.slice(0, 10));
+    console.log('Debug - Active Models:', activeModels.length, 'models');
+    console.log('Debug - First 10 Active Model IDs:', activeModels.slice(0, 10).map(m => m.id));
+    
+    // Check overlap
+    const matchingModels = activeModels.filter(model => zdrModels.includes(model.id));
+    console.log('Debug - Matching ZDR Models:', matchingModels.length, 'models');
+    if (matchingModels.length > 0) {
+      console.log('Debug - Example matching models:', matchingModels.slice(0, 3).map(m => m.id));
+    }
+    
     const processedModels = processModels(activeModels, zdrModels);
+    
+    console.log('Debug - Processed Models by Privacy Level:', {
+      privacyFirst: processedModels.filter(m => m.privacyLevel === 'privacy-first').length,
+      warning: processedModels.filter(m => m.privacyLevel === 'warning').length,
+      standard: processedModels.filter(m => m.privacyLevel === 'standard').length
+    });
+    
     const categorizedModels = categorizeModels(processedModels);
+    
+    console.log('Debug - Final Categories:', categorizedModels.map(cat => ({
+      label: cat.label,
+      modelCount: cat.models.length
+    })));
 
     // Update cache
     modelsCache = {
