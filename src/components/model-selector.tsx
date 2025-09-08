@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Zap, DollarSign, Crown, Shield, AlertTriangle, Eye, UserCheck } from "lucide-react";
+import { Shield, AlertTriangle, Eye, UserCheck, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -16,172 +16,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-type PrivacyLevel = "privacy-first" | "standard" | "warning";
-
-interface Model {
-  id: string;
-  name: string;
-  provider: string;
-  pricing: string;
-  description: string;
-  badge?: string;
-  privacyLevel: PrivacyLevel;
-  dataRetention: "zero" | "limited" | "standard" | "unknown";
-  trainsOnData: boolean;
-}
-
-interface ModelCategory {
-  label: string;
-  icon: any;
-  models: Model[];
-}
-
-// Model categories prioritizing privacy-first providers
-const modelCategories: ModelCategory[] = [
-  {
-    label: "🛡️ Privacy First (Zero Retention)",
-    icon: Shield,
-    models: [
-      {
-        id: "anthropic/claude-3.7-sonnet",
-        name: "Claude 3.7 Sonnet",
-        provider: "Anthropic",
-        pricing: "$3.00 / $15.00",
-        description:
-          "Latest Claude with enhanced reasoning - top choice for complex tasks",
-        badge: "🔥 Trending",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "anthropic/claude-3.5-sonnet",
-        name: "Claude 3.5 Sonnet",
-        provider: "Anthropic",
-        pricing: "$3.00 / $15.00",
-        description: "Proven reliability for complex analytical tasks",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "deepseek/deepseek-chat-v3-0324",
-        name: "DeepSeek V3",
-        provider: "DeepSeek",
-        pricing: "$0.15 / $0.60",
-        description: "Excellent reasoning at competitive price point",
-        badge: "💎 Value",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "anthropic/claude-3.7-sonnet:thinking",
-        name: "Claude 3.7 Sonnet (Thinking)",
-        provider: "Anthropic",
-        pricing: "$3.00 / $15.00",
-        description: "Extended reasoning mode for complex analysis",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-    ],
-  },
-  {
-    label: "🔐 Open Source Privacy",
-    icon: UserCheck,
-    models: [
-      {
-        id: "meta-llama/llama-3.3-70b",
-        name: "Llama 3.3 70B",
-        provider: "Meta",
-        pricing: "$0.27 / $0.27",
-        description: "Open source powerhouse",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "qwen/qwen3-32b",
-        name: "Qwen3 32B",
-        provider: "Qwen",
-        pricing: "$0.27 / $0.27",
-        description: "Dense model with thinking mode capabilities",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "qwen/qwen3-14b",
-        name: "Qwen3 14B",
-        provider: "Qwen",
-        pricing: "$0.06 / $0.24",
-        description: "Efficient model for general purpose tasks",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-      {
-        id: "qwen/qwen3-30b-a3b",
-        name: "Qwen3 30B A3B",
-        provider: "Qwen",
-        pricing: "$0.08 / $0.29",
-        description: "MoE architecture with dual reasoning modes",
-        privacyLevel: "privacy-first",
-        dataRetention: "zero",
-        trainsOnData: false,
-      },
-    ],
-  },
-  {
-    label: "⚠️ Privacy Warning (May Train on Data)",
-    icon: AlertTriangle,
-    models: [
-      {
-        id: "openai/gpt-4o",
-        name: "GPT-4o",
-        provider: "OpenAI",
-        pricing: "$2.50 / $10.00",
-        description: "OpenAI's multimodal flagship model",
-        privacyLevel: "warning",
-        dataRetention: "standard",
-        trainsOnData: true,
-      },
-      {
-        id: "openai/gpt-4o-mini",
-        name: "GPT-4o Mini",
-        provider: "OpenAI",
-        pricing: "$0.15 / $0.60",
-        description: "Great balance of capability and cost",
-        privacyLevel: "warning",
-        dataRetention: "standard",
-        trainsOnData: true,
-      },
-      {
-        id: "google/gemini-2.5-pro",
-        name: "Gemini 2.5 Pro",
-        provider: "Google",
-        pricing: "$0.50 / $2.00",
-        description: "Google's powerful model with large context window",
-        badge: "📈 Rising",
-        privacyLevel: "warning",
-        dataRetention: "standard",
-        trainsOnData: true,
-      },
-      {
-        id: "openai/gpt-4o-search-preview",
-        name: "GPT-4o Search",
-        provider: "OpenAI",
-        pricing: "$2.50 / $10.00",
-        description: "Specialized for web search and real-time data",
-        privacyLevel: "warning",
-        dataRetention: "standard",
-        trainsOnData: true,
-      },
-    ],
-  },
-];
+import { useState, useEffect } from "react";
+import { 
+  fetchOpenRouterModels, 
+  getFallbackModels,
+  type ModelCategory,
+  type ProcessedModel,
+  type PrivacyLevel 
+} from "@/lib/openrouter-models";
 
 interface ModelSelectorProps {
   selectedModel?: string;
@@ -194,6 +36,29 @@ export function ModelSelector({
   onModelSelect,
   className,
 }: ModelSelectorProps) {
+  const [modelCategories, setModelCategories] = useState<ModelCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load models on component mount
+  useEffect(() => {
+    async function loadModels() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const models = await fetchOpenRouterModels();
+        setModelCategories(models);
+      } catch (err) {
+        console.error('Failed to load OpenRouter models, using fallback:', err);
+        setError('Using cached models');
+        setModelCategories(getFallbackModels());
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadModels();
+  }, []);
   // Find selected model details for display
   const getSelectedModelDisplay = () => {
     for (const category of modelCategories) {
@@ -216,7 +81,7 @@ export function ModelSelector({
     }
   };
 
-  const getPrivacyTooltip = (model: Model) => {
+  const getPrivacyTooltip = (model: ProcessedModel) => {
     switch (model.privacyLevel) {
       case "privacy-first":
         return `Privacy Protected: Zero data retention, does not train on your data`;
