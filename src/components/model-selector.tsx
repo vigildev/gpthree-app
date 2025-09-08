@@ -105,18 +105,36 @@ export function ModelSelector({
           </SelectValue>
         </SelectTrigger>
         <SelectContent className="bg-popover border border-border rounded-xl shadow-lg max-w-sm">
-          {modelCategories.map((category) => (
-            <SelectGroup key={category.label}>
-              <SelectLabel className={`flex items-center gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wide border-b border-border ${
-                category.label.includes("Warning") 
-                  ? "text-red-400 bg-red-50/10" 
-                  : category.label.includes("Privacy First") 
-                  ? "text-green-400 bg-green-50/10" 
-                  : "text-blue-400 bg-blue-50/10"
-              }`}>
-                <category.icon className="h-3 w-3" />
-                {category.label}
-              </SelectLabel>
+          {isLoading ? (
+            <div className="flex items-center justify-center p-6">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Loading models...</span>
+            </div>
+          ) : modelCategories.length === 0 ? (
+            <div className="flex items-center justify-center p-6">
+              <span className="text-sm text-muted-foreground">No models available</span>
+            </div>
+          ) : (
+            modelCategories.map((category) => {
+              // Map icon string to icon component
+              const IconComponent = 
+                category.icon === "shield" ? Shield :
+                category.icon === "user-check" ? UserCheck :
+                category.icon === "alert-triangle" ? AlertTriangle :
+                Eye;
+              
+              return (
+                <SelectGroup key={category.label}>
+                  <SelectLabel className={`flex items-center gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wide border-b border-border ${
+                    category.label.includes("Warning") 
+                      ? "text-red-400 bg-red-50/10" 
+                      : category.label.includes("Privacy First") 
+                      ? "text-green-400 bg-green-50/10" 
+                      : "text-blue-400 bg-blue-50/10"
+                  }`}>
+                    <IconComponent className="h-3 w-3" />
+                    {category.label}
+                  </SelectLabel>
               {category.models.map((model) => (
                 <SelectItem
                   key={model.id}
