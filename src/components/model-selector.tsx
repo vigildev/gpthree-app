@@ -190,8 +190,10 @@ export function ModelSelector({
                   </div>
                 </SelectItem>
               ))}
-            </SelectGroup>
-          ))}
+                </SelectGroup>
+              );
+            })
+          )}
         </SelectContent>
       </Select>
     </TooltipProvider>
