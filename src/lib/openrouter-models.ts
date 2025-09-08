@@ -31,6 +31,10 @@ export interface OpenRouterApiResponse {
   data: OpenRouterModel[];
 }
 
+export interface ZDRApiResponse {
+  data: string[]; // Array of model IDs that support Zero Data Retention
+}
+
 export type PrivacyLevel = "privacy-first" | "standard" | "warning";
 export type DataRetention = "zero" | "limited" | "standard" | "unknown";
 
@@ -55,52 +59,43 @@ export interface ModelCategory {
 }
 
 /**
- * Privacy classification logic based on provider and model characteristics
+ * Privacy classification logic using OpenRouter's ZDR API data
  */
-function classifyModelPrivacy(model: OpenRouterModel): {
+function classifyModelPrivacy(model: OpenRouterModel, zdrModels: string[]): {
   privacyLevel: PrivacyLevel;
   dataRetention: DataRetention;
   trainsOnData: boolean;
 } {
-  const modelId = model.id.toLowerCase();
-  const provider = modelId.split('/')[0];
-
-  // Privacy-first providers (don't train on data, zero retention)
-  const privacyFirstProviders = [
-    'anthropic',
-    'deepseek',
-    'meta-llama',
-    'mistralai',
-    'qwen',
-    'nvidia',
-    'microsoft',
-    'huggingfaceh4'
-  ];
-
-  // Providers with privacy warnings (may train on data)
-  const warningProviders = [
-    'openai',
-    'google',
-    'cohere'
-  ];
-
-  if (privacyFirstProviders.includes(provider)) {
+  const modelId = model.id;
+  const provider = modelId.split('/')[0].toLowerCase();
+  
+  // Use ZDR API data as the authoritative source
+  const isZDRVerified = zdrModels.includes(modelId);
+  
+  if (isZDRVerified) {
     return {
       privacyLevel: "privacy-first",
       dataRetention: "zero",
       trainsOnData: false
     };
   }
-
-  if (warningProviders.includes(provider)) {
+  
+  // Known providers that may train on data (even if not ZDR)
+  const knownTrainingProviders = [
+    'openai',
+    'google',
+    'cohere'
+  ];
+  
+  if (knownTrainingProviders.includes(provider)) {
     return {
       privacyLevel: "warning",
       dataRetention: "standard",
       trainsOnData: true
     };
   }
-
-  // Default for unknown providers
+  
+  // Default for providers not in ZDR list and not known training providers
   return {
     privacyLevel: "standard",
     dataRetention: "unknown",
@@ -194,9 +189,9 @@ function assignBadge(model: OpenRouterModel): string | undefined {
 /**
  * Process OpenRouter model data into our app format
  */
-function processModels(openRouterModels: OpenRouterModel[]): ProcessedModel[] {
+function processModels(openRouterModels: OpenRouterModel[], zdrModels: string[]): ProcessedModel[] {
   return openRouterModels.map(model => {
-    const privacy = classifyModelPrivacy(model);
+    const privacy = classifyModelPrivacy(model, zdrModels);
     const provider = model.id.split('/')[0];
     const displayProvider = provider.charAt(0).toUpperCase() + provider.slice(1);
 
@@ -297,7 +292,32 @@ let modelsCache: {
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
 /**
- * Fetch models from OpenRouter API
+ * Fetch Zero Data Retention models from OpenRouter API
+ */
+async function fetchZDRModels(): Promise<string[]> {
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/endpoints/zdr', {
+      headers: {
+        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.warn('ZDR API unavailable, falling back to heuristic classification');
+      return [];
+    }
+
+    const zdrData: ZDRApiResponse = await response.json();
+    return zdrData.data || [];
+  } catch (error) {
+    console.warn('Failed to fetch ZDR models:', error);
+    return []; // Return empty array on error, will fallback to heuristic classification
+  }
+}
+
+/**
+ * Fetch models from OpenRouter API with ZDR privacy data
  */
 export async function fetchOpenRouterModels(): Promise<ModelCategory[]> {
   // Return cached data if still fresh
@@ -306,37 +326,41 @@ export async function fetchOpenRouterModels(): Promise<ModelCategory[]> {
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/models', {
-      headers: {
-        'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Fetch both models and ZDR data in parallel
+    const [modelsResponse, zdrModels] = await Promise.all([
+      fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
+          'Content-Type': 'application/json',
+        },
+      }),
+      fetchZDRModels()
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.status}`);
+    if (!modelsResponse.ok) {
+      throw new Error(`OpenRouter API error: ${modelsResponse.status}`);
     }
 
-    const apiData: OpenRouterApiResponse = await response.json();
-
+    const apiData: OpenRouterApiResponse = await modelsResponse.json();
+    
     // Filter to only include actively supported models
     const activeModels = apiData.data.filter(model => {
       // Filter out models that are likely deprecated or unsupported
       const modelId = model.id.toLowerCase();
-
+      
       // Skip very old models or beta versions we don't want to expose
       if (modelId.includes('preview') && !modelId.includes('search-preview')) return false;
       if (modelId.includes('deprecated')) return false;
       if (modelId.includes('beta') && !modelId.includes('claude')) return false;
-
+      
       // Only include models with reasonable pricing (not free or extremely expensive)
       const prompt = parseFloat(model.pricing.prompt);
       if (prompt <= 0 || prompt > 0.1) return false; // Filter out free models and very expensive ones
-
+      
       return true;
     });
 
-    const processedModels = processModels(activeModels);
+    const processedModels = processModels(activeModels, zdrModels);
     const categorizedModels = categorizeModels(processedModels);
 
     // Update cache
