@@ -303,19 +303,15 @@ const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
  */
 async function fetchZDRModels(): Promise<string[]> {
   try {
-    console.log('Fetching ZDR models from OpenRouter...');
     const response = await fetch('https://openrouter.ai/api/v1/endpoints/zdr', {
       headers: {
         'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
         'Content-Type': 'application/json',
       },
     });
-
-    console.log('ZDR API Response Status:', response.status, response.statusText);
     
     if (!response.ok) {
-      const errorText = await response.text();
-      console.warn('ZDR API unavailable:', response.status, errorText);
+      console.warn('ZDR API unavailable, falling back to heuristic classification');
       return [];
     }
 
