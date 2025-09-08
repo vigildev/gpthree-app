@@ -316,21 +316,6 @@ async function fetchZDRModels(): Promise<string[]> {
     }
 
     const zdrData: ZDRApiResponse = await response.json();
-    console.log('ZDR API Response:', {
-      status: response.status,
-      dataCount: zdrData.data?.length || 0,
-      firstFewModels: zdrData.data?.slice(0, 3) || [],
-    });
-    
-    // Debug the structure of the first few objects
-    if (zdrData.data && zdrData.data.length > 0) {
-      const firstObj = zdrData.data[0];
-      console.log('ZDR Object Structure:', {
-        firstObject: firstObj,
-        allKeys: Object.keys(firstObj || {}),
-        keyValuePairs: Object.entries(firstObj || {})
-      });
-    }
     
     // Extract model IDs from the response objects
     // The 'name' field format is: "Provider | model/id"
@@ -342,13 +327,11 @@ async function fetchZDRModels(): Promise<string[]> {
         return parts.length > 1 ? parts[1] : null;
       })
       .filter(Boolean);
-      
-    console.log('ZDR Model IDs extracted:', zdrModelIds.slice(0, 10));
     
     return zdrModelIds;
   } catch (error) {
-    console.warn('Failed to fetch ZDR models:', error);
-    return []; // Return empty array on error, will fallback to heuristic classification
+    console.warn('Failed to fetch ZDR models, falling back to heuristic classification');
+    return [];
   }
 }
 
@@ -396,32 +379,8 @@ export async function fetchOpenRouterModels(): Promise<ModelCategory[]> {
       return true;
     });
 
-    console.log('Debug - ZDR Models:', zdrModels.length, 'models');
-    console.log('Debug - First 10 ZDR Model IDs:', zdrModels.slice(0, 10));
-    console.log('Debug - Active Models:', activeModels.length, 'models');
-    console.log('Debug - First 10 Active Model IDs:', activeModels.slice(0, 10).map(m => m.id));
-    
-    // Check overlap
-    const matchingModels = activeModels.filter(model => zdrModels.includes(model.id));
-    console.log('Debug - Matching ZDR Models:', matchingModels.length, 'models');
-    if (matchingModels.length > 0) {
-      console.log('Debug - Example matching models:', matchingModels.slice(0, 3).map(m => m.id));
-    }
-    
     const processedModels = processModels(activeModels, zdrModels);
-    
-    console.log('Debug - Processed Models by Privacy Level:', {
-      privacyFirst: processedModels.filter(m => m.privacyLevel === 'privacy-first').length,
-      warning: processedModels.filter(m => m.privacyLevel === 'warning').length,
-      standard: processedModels.filter(m => m.privacyLevel === 'standard').length
-    });
-    
     const categorizedModels = categorizeModels(processedModels);
-    
-    console.log('Debug - Final Categories:', categorizedModels.map(cat => ({
-      label: cat.label,
-      modelCount: cat.models.length
-    })));
 
     // Update cache
     modelsCache = {
