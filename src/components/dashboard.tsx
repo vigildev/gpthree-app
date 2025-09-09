@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
+import { PrivacyBanner } from "@/components/privacy-banner";
 import { useState, useEffect, useRef } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
@@ -68,13 +69,13 @@ export function Dashboard({
   // Convert messages to UI format and ensure proper ordering (newest at bottom)
   const persistedMessages = messages
     ? messages
-        .sort((a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)) // Sort by creation time
-        .map((msg: any, index: number) => ({
-          key: `${msg._id || index}`,
-          role: msg.author === "user" ? "user" : "assistant",
-          content: msg.content || msg.text || "",
-          status: "complete" as const,
-        }))
+      .sort((a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)) // Sort by creation time
+      .map((msg: any, index: number) => ({
+        key: `${msg._id || index}`,
+        role: msg.author === "user" ? "user" : "assistant",
+        content: msg.content || msg.text || "",
+        status: "complete" as const,
+      }))
     : [];
 
   // Clear local chat messages when thread changes
@@ -185,6 +186,9 @@ export function Dashboard({
         </p>
       </div>
 
+      {/* Privacy Banner */}
+      <PrivacyBanner />
+
       {/* Chat History */}
       {displayMessages.length > 0 && (
         <div className="mb-12 space-y-6">
@@ -197,11 +201,10 @@ export function Dashboard({
                 {msg.role === "user" ? "You" : "GPThree"}
               </div>
               <div
-                className={`p-6 rounded-3xl ${
-                  msg.role === "user"
-                    ? "bg-secondary/10 text-foreground border border-secondary/20"
-                    : "bg-card border border-border text-card-foreground shadow-sm"
-                }`}
+                className={`p-6 rounded-3xl ${msg.role === "user"
+                  ? "bg-secondary/10 text-foreground border border-secondary/20"
+                  : "bg-card border border-border text-card-foreground shadow-sm"
+                  }`}
               >
                 {msg.content}
                 {msg.status !== "complete" && (
@@ -220,21 +223,13 @@ export function Dashboard({
               <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                 GPThree
               </div>
-              <div className="p-6 rounded-3xl bg-card border border-border shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
-                    <div
-                      className="w-2 h-2 bg-secondary/60 rounded-full animate-pulse"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-accent/60 rounded-full animate-pulse"
-                      style={{ animationDelay: "0.4s" }}
-                    ></div>
-                  </div>
-                  <span className="text-muted-foreground font-light">
-                    Thinking...
+              <div className="p-6 rounded-3xl bg-card border border-border text-card-foreground shadow-sm">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-primary/40 rounded-full animate-pulse animation-delay-100"></div>
+                  <div className="w-2 h-2 bg-primary/20 rounded-full animate-pulse animation-delay-200"></div>
+                  <span className="text-sm text-muted-foreground ml-2">
+                    Processing...
                   </span>
                 </div>
               </div>
@@ -243,102 +238,77 @@ export function Dashboard({
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="mb-16">
-        {selectedQuickAction && (
-          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                <span className="text-sm font-medium text-primary">
-                  {selectedQuickAction.text} Mode Active
-                </span>
-              </div>
+      {/* Quick Actions */}
+      {displayMessages.length === 0 && (
+        <div className="mb-12">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
+            Quick Start
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            {QUICK_START_ACTIONS.map((action, index) => (
               <button
-                onClick={() => setSelectedQuickAction(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                key={action.text}
+                onClick={() => setSelectedQuickAction(action)}
+                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card/50 to-card border border-border/50 p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:scale-[1.02]"
               >
-                Clear
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-2xl">
+                      {index === 0 ? "🔍" : index === 1 ? "📊" : index === 2 ? "📚" : "✍️"}
+                    </div>
+                    <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                      {action.text}
+                    </h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {action.desc}
+                  </p>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </button>
-            </div>
+            ))}
           </div>
-        )}
-        <div className="mx-auto relative">
-          <Input
-            placeholder={selectedQuickAction 
-              ? `Ask anything about ${selectedQuickAction.text.toLowerCase()}...`
-              : "Ask anything... I'm your privacy-focused AI assistant"
-            }
-            className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-            disabled={isLoading}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={isLoading || !message.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 disabled:from-muted disabled:to-muted text-white rounded-full transition-colors flex items-center justify-center"
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
         </div>
-        <div className="flex items-center justify-between mt-9 ml-6">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Lock className="h-3 w-3 text-primary" />
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                End-to-end encrypted
-              </span>
-            </div>
-            <span className="w-1 h-1 bg-muted-foreground rounded-full"></span>
-            <span className="text-xs text-muted-foreground">
-              Using{" "}
-              {selectedModel.split("/")[1]?.replace(/-/g, " ") || selectedModel}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Brain className="h-3 w-3 text-secondary" />
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelSelect={handleModelChange}
-              className="w-56 h-7 text-xs"
+      )}
+
+      {/* Message Input */}
+      <div className="space-y-6">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Input
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ask anything..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="h-14 px-6 text-base rounded-2xl border-border/50 bg-card/50 backdrop-blur-sm focus:border-primary/50 focus:ring-primary/20"
+              disabled={isLoading}
             />
           </div>
+          <Button
+            onClick={handleSendMessage}
+            disabled={!message.trim() || isLoading}
+            size="lg"
+            className="h-14 px-8 rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
+          >
+            <Send className="h-5 w-5" />
+          </Button>
         </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className="mb-20">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
-          Quick Start
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {QUICK_START_ACTIONS.map((action) => (
-            <button
-              key={action.text}
-              className={`p-6 text-left rounded-2xl transition-all duration-200 group ${
-                selectedQuickAction?.text === action.text
-                  ? "bg-primary/5 border border-primary/30 shadow-md"
-                  : "bg-card border border-border hover:border-primary/50 hover:shadow-md"
-              }`}
-              onClick={() => {
-                setSelectedQuickAction(action);
-                setMessage(""); // Clear input when selecting an action
-              }}
-            >
-              <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-                {action.text}
-              </div>
-              <div className="text-xs text-muted-foreground font-light">
-                {action.desc}
-              </div>
-            </button>
-          ))}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-4">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelSelect={setSelectedModel}
+            />
+            <div className="text-muted-foreground">
+              Choose your preferred AI model
+            </div>
+          </div>
         </div>
       </div>
 
