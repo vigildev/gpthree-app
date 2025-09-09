@@ -46,7 +46,7 @@ export default function RootLayout({
             <PrivyProvider
               appId={PRIVY_APP_ID}
               config={{
-                // Customize Privy's appearance for Solana-only
+                // Customize Privy's appearance for Solana-focused experience
                 appearance: {
                   theme: "dark",
                   accentColor: "#676FFF",
@@ -65,7 +65,7 @@ export default function RootLayout({
                   // TODO: replace with proper logo
                   logo: "https://867bw7rqa6.ufs.sh/f/cGZ8tFrF8tOmH78IKBXM1SzoQ3uEIKNXedD6tx85Gb72WpcT"
                 },
-                // Configure login methods - wallet only authentication
+                // Configure login methods - email and wallet authentication
                 loginMethods: ["email", "wallet"],
                 // Create embedded Solana wallets for users without external wallets
                 embeddedWallets: {
