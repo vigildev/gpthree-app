@@ -298,16 +298,15 @@ export function Dashboard({
                     </Button>
                 </div>
 
-                <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-4">
-                        <ModelSelector
-                            selectedModel={selectedModel}
-                            onModelSelect={setSelectedModel}
-                        />
-                        <div className="text-muted-foreground">
-                            Choose your preferred AI model
-                        </div>
+                <div className="flex items-center gap-x-3 justify-end text-sm">
+                    <div className="text-muted-foreground">
+                        Select Model
                     </div>
+                    <ModelSelector
+                        selectedModel={selectedModel}
+                        onModelSelect={setSelectedModel}
+                        className="w-34"
+                    />
                 </div>
             </div>
 
