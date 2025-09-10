@@ -37,7 +37,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
@@ -45,20 +45,33 @@ export default function RootLayout({
             <PrivyProvider
               appId={PRIVY_APP_ID}
               config={{
-                // Customize Privy's appearance in your app
+                // Customize Privy's appearance for Solana-focused experience
                 appearance: {
-                  theme: "light",
+                  theme: "dark",
                   accentColor: "#676FFF",
+                  // Configure for Solana only
+                  walletChainType: "solana-only",
+                  // Prioritize popular Solana wallets - order matters!
+                  walletList: [
+                    'phantom',           // Most popular Solana wallet - show first
+                    'solflare',          // Feature-rich Solana wallet - second
+                    'backpack',          // Modern Solana wallet - third
+                    'coinbase_wallet',   // Institutional wallet with Solana support
+                    'okx_wallet',        // Professional trading wallet
+                    'detected_solana_wallets', // Any other detected Solana wallets
+                    'wallet_connect',    // For mobile wallet connections
+                  ],
                   // TODO: replace with proper logo
                   logo: "https://867bw7rqa6.ufs.sh/f/cGZ8tFrF8tOmH78IKBXM1SzoQ3uEIKNXedD6tx85Gb72WpcT",
                 },
-                // Create embedded wallets for users who don't have a wallet
+                // Configure login methods - email and wallet authentication
+                loginMethods: ["email", "wallet"],
+                // Create embedded Solana wallets for users without external wallets
                 embeddedWallets: {
                   solana: {
-                    createOnLogin: "users-without-wallets", // defaults to 'off'
+                    createOnLogin: "users-without-wallets",
                   },
                 },
-                loginMethods: ["email", "wallet"],
               }}
             >
               {children}
