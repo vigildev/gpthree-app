@@ -53,7 +53,9 @@ export default function Home() {
                   <div className="flex items-start gap-3">
                     <Trash2 className="h-4 w-4 text-green-500 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-medium text-foreground">No Chat Logs</div>
+                      <div className="font-medium text-foreground">
+                        No Chat Logs
+                      </div>
                       <div className="text-muted-foreground text-xs">
                         Conversations are never stored or logged
                       </div>
@@ -62,13 +64,15 @@ export default function Home() {
                   <div className="flex items-start gap-3">
                     <Clock className="h-4 w-4 text-green-500 mt-0.5" />
                     <div className="text-sm">
-                      <div className="font-medium text-foreground">Daily Log Deletion</div>
+                      <div className="font-medium text-foreground">
+                        Daily Log Deletion
+                      </div>
                       <div className="text-muted-foreground text-xs">
                         Server access logs deleted every 24 hours
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
+                  {/* <div className="flex items-start gap-3">
                     <Shield className="h-4 w-4 text-green-500 mt-0.5" />
                     <div className="text-sm">
                       <div className="font-medium text-foreground">Wallet-Only Auth</div>
@@ -76,7 +80,7 @@ export default function Home() {
                         No email required, just your Solana wallet
                       </div>
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
@@ -84,7 +88,8 @@ export default function Home() {
             <LoginButton />
 
             <div className="text-center text-xs text-muted-foreground max-w-sm">
-              Connect with your Solana wallet for the most private experience, or use email for quick access.
+              Connect with your Solana wallet for the most private experience,
+              or use email for quick access.
             </div>
           </div>
         )}
