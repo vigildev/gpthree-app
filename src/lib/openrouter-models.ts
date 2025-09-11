@@ -326,7 +326,7 @@ async function fetchZDRModels(): Promise<string[]> {
         const parts = item.name.split(' | ');
         return parts.length > 1 ? parts[1] : null;
       })
-      .filter(Boolean);
+      .filter(Boolean) as string[]; // Type assertion after filtering out nulls
     
     return zdrModelIds;
   } catch (error) {
