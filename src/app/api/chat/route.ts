@@ -294,7 +294,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Call your existing Convex functions and capture the result
     let result;
     if (threadId) {
-      // Continue existing thread
+      // Continue existing thread - now returns { text, usage }
       result = await convex.action(api.agents.continueThread, {
         prompt,
         threadId,
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         systemEnhancement,
       });
     } else {
-      // Create new thread
+      // Create new thread - returns { threadId, text, usage }
       result = await convex.action(api.agents.createThread, {
         prompt,
         model: model || "anthropic/claude-3.5-sonnet",
@@ -311,10 +311,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // TODO: Extract usage information from the result
-    // Note: We need to modify the Convex agents to return usage data
-    // For now, let's assume we can get usage data somehow
+    // Extract usage information from the result
     const usageData = (result as any).usage || null;
+    console.log('Raw result from Convex:', result);
     
     if (usageData && usageData.cost) {
       console.log('OpenRouter usage data:', usageData);
@@ -345,7 +344,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Payment settlement failed" }, { status: 402 });
   }
 
-    // Return the AI response
+    // Return the AI response in the expected format
+    // For continueThread, we need to normalize the response format
+    if (threadId && result && typeof result === 'object' && 'text' in result) {
+      // continueThread now returns { text, usage }, but frontend expects just the text
+      // So we return the text, but we already processed the usage for refund
+      return NextResponse.json(result.text);
+    }
+    
+    // For createThread, return as-is (already has correct format)
     return NextResponse.json(result);
   } catch (error) {
     console.error("Chat API error:", error);

@@ -155,7 +155,7 @@ export function Dashboard({
         const aiChatMessage = {
           key: `ai-${Date.now()}`,
           role: "assistant" as const,
-          content: response,
+          content: typeof response === 'string' ? response : response.text || 'No response',
           status: "complete" as const,
         };
         setChatMessages((prev) => [...prev, aiChatMessage]);
