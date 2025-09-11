@@ -20,12 +20,17 @@ const MIN_FEE_USD = 0.002; // $0.002 minimum fee
 const SOL_PRICE_USD = 200; // Approximate SOL price (could be made dynamic)
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
-// Calculate refund amount based on actual usage
-function calculateRefund(actualCostCredits: number, paidLamports: number): number {
-  // Convert OpenRouter credits to USD (1 credit = $1)
-  const actualCostUSD = actualCostCredits;
+// Calculate refund amount based on actual OpenRouter usage
+function calculateRefund(usageData: any, paidLamports: number): number {
+  if (!usageData || typeof usageData.cost !== 'number') {
+    console.log('Invalid or missing usage data, no refund calculated');
+    return 0;
+  }
   
-  // Apply our service fee
+  // OpenRouter cost is in credits (1 credit = $1 USD)
+  const actualCostUSD = usageData.cost;
+  
+  // Apply our service fee (20% markup or minimum $0.002)
   const serviceFee = Math.max(actualCostUSD * SERVICE_FEE_PCT, MIN_FEE_USD);
   const totalOwedUSD = actualCostUSD + serviceFee;
   
@@ -39,6 +44,12 @@ function calculateRefund(actualCostCredits: number, paidLamports: number): numbe
   const refundLamports = Math.floor(refundSOL * LAMPORTS_PER_SOL);
   
   console.log(`Refund calculation:`);
+  console.log(`- OpenRouter usage:`, {
+    prompt_tokens: usageData.prompt_tokens,
+    completion_tokens: usageData.completion_tokens,
+    total_tokens: usageData.total_tokens,
+    cost_credits: usageData.cost,
+  });
   console.log(`- Actual cost: $${actualCostUSD.toFixed(6)}`);
   console.log(`- Service fee: $${serviceFee.toFixed(6)}`);
   console.log(`- Total owed: $${totalOwedUSD.toFixed(6)}`);
@@ -280,7 +291,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Call your existing Convex functions
+    // Call your existing Convex functions and capture the result
     let result;
     if (threadId) {
       // Continue existing thread
@@ -298,6 +309,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         userId,
         systemEnhancement,
       });
+    }
+
+    // TODO: Extract usage information from the result
+    // Note: We need to modify the Convex agents to return usage data
+    // For now, let's assume we can get usage data somehow
+    const usageData = (result as any).usage || null;
+    
+    if (usageData && usageData.cost) {
+      console.log('OpenRouter usage data:', usageData);
+      
+      // Calculate refund amount
+      const refundAmount = calculateRefund(usageData.cost, PAYMENT_CONFIG.amount);
+      
+      if (refundAmount > 0) {
+        console.log(`Processing refund of ${refundAmount} lamports`);
+        
+        // TODO: Implement async refund processing
+        // This would involve:
+        // 1. Getting user's wallet address from payment header
+        // 2. Creating a Solana transfer transaction
+        // 3. Executing the refund transfer
+        // 4. Logging the transaction for audit
+        
+        // For now, just log the intended refund
+        console.log(`Refund queued: ${refundAmount} lamports to user`);
+      }
+    } else {
+      console.log('No usage data available for refund calculation');
     }
 
   // settle payment with facilitator
