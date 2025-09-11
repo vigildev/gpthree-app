@@ -131,14 +131,29 @@ export const continueThread = action({
     const { thread } = await agent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
 
-    // Debug: Log the entire result object to understand its structure
-    console.log("=== continueThread generateText result structure ===");
-    console.log("Result type:", typeof result);
-    console.log("Result keys:", Object.keys(result));
-    console.log("Full result:", JSON.stringify(result, null, 2));
-    console.log("=================================================");
+    // Extract usage data from provider metadata
+    let usage = null;
+    if (result.providerMetadata?.openrouter?.usage) {
+      const openrouterUsage = result.providerMetadata.openrouter.usage as any;
+      // Type assertion since provider metadata is loosely typed
+      if (typeof openrouterUsage === 'object' && openrouterUsage !== null) {
+        usage = {
+          promptTokens: openrouterUsage.promptTokens || 0,
+          completionTokens: openrouterUsage.completionTokens || 0,
+          totalTokens: openrouterUsage.totalTokens || 0,
+          cost: openrouterUsage.cost || 0,
+        };
+        console.log('Extracted OpenRouter usage data (continueThread):', usage);
+      }
+    } else {
+      console.log('No OpenRouter usage data found in provider metadata (continueThread)');
+    }
 
-    return result.text;
+    // Return both text and usage data for refund processing
+    return {
+      text: result.text,
+      usage: usage
+    };
   },
 });
 
