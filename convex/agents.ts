@@ -1,10 +1,7 @@
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
-import {
-  createThread as createAgentThread,
-  listMessages,
-} from "@convex-dev/agent";
+import { createThread as createAgentThread, listMessages } from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { action, query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
@@ -82,13 +79,11 @@ export const createThread = action({
 
     // Generate a title from the first few words of the prompt
     const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
-
     const { threadId, thread } = await agent.createThread(ctx, {
       userId,
       title,
       summary: "New conversation with GPThree",
     });
-
     const result = await thread.generateText({ prompt });
     
     // Extract usage data from provider metadata
@@ -262,3 +257,4 @@ export const listThreadMessages = query({
     }
   },
 });
+
