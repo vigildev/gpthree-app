@@ -1,7 +1,10 @@
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
-import { createThread as createAgentThread, listMessages } from "@convex-dev/agent";
+import {
+  createThread as createAgentThread,
+  listMessages,
+} from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { action, query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
@@ -13,13 +16,10 @@ const getAuthUserId = async (ctx: any) => {
   return ctx.auth?.userId || null;
 };
 
-// Create OpenRouter instance with usage accounting enabled
+// Create OpenRouter instance
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
-  // Enable usage accounting for all requests
-  defaultOptions: {
-    usage: { include: true }
-  },
+  compatibility: 'strict', // Use strict mode for full OpenRouter features
 });
 
 // Helper function to create GPThree agent with specified model and optional system enhancement
@@ -45,13 +45,15 @@ Key principles:
 
 You are knowledgeable about various AI models and can help users choose the best model for their specific tasks. You have access to multiple AI models through OpenRouter including Claude, GPT, Llama, and many others.`;
 
-  const instructions = systemEnhancement 
+  const instructions = systemEnhancement
     ? `${baseInstructions}\n\n--- SPECIALIZED MODE ---\n\n${systemEnhancement}`
     : baseInstructions;
 
   return new Agent(components.agent, {
     name: "GPThree Assistant",
-    chat: openrouter.chat(modelId),
+    chat: openrouter.chat(modelId, {
+      usage: { include: true }, // Enable usage accounting
+    }),
     instructions,
 
     // Use OpenAI directly for embeddings with correct model ID
@@ -74,20 +76,28 @@ export const createThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
-    
+
     const modelId = model || defaultModelId;
     const agent = createGPThreeAgent(modelId, systemEnhancement);
-    
+
     // Generate a title from the first few words of the prompt
     const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
-    
+
     const { threadId, thread } = await agent.createThread(ctx, {
       userId,
       title,
       summary: "New conversation with GPThree",
     });
-    
+
     const result = await thread.generateText({ prompt });
+
+    // Debug: Log the entire result object to understand its structure
+    console.log("=== generateText result structure ===");
+    console.log("Result type:", typeof result);
+    console.log("Result keys:", Object.keys(result));
+    console.log("Full result:", JSON.stringify(result, null, 2));
+    console.log("=====================================");
+
     return { threadId, text: result.text };
   },
 });
@@ -104,6 +114,14 @@ export const continueThread = action({
     const agent = createGPThreeAgent(modelId, systemEnhancement);
     const { thread } = await agent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
+
+    // Debug: Log the entire result object to understand its structure
+    console.log("=== continueThread generateText result structure ===");
+    console.log("Result type:", typeof result);
+    console.log("Result keys:", Object.keys(result));
+    console.log("Full result:", JSON.stringify(result, null, 2));
+    console.log("=================================================");
+
     return result.text;
   },
 });
@@ -118,14 +136,14 @@ export const createNewThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
-    
+
     const agent = createGPThreeAgent(defaultModelId);
     const { threadId } = await agent.createThread(ctx, {
       userId,
       title: title || "New Conversation",
       summary: "A new conversation with GPThree",
     });
-    
+
     return { threadId };
   },
 });
@@ -135,21 +153,26 @@ export const listUserThreads = query({
   args: {
     userId: v.string(),
   },
-  handler: async (ctx, { userId }): Promise<Array<{
-    _id: string;
-    title: string;
-    summary: string;
-    _creationTime: number;
-  }>> => {
+  handler: async (
+    ctx,
+    { userId }
+  ): Promise<
+    Array<{
+      _id: string;
+      title: string;
+      summary: string;
+      _creationTime: number;
+    }>
+  > => {
     try {
       const threads = await ctx.runQuery(
         components.agent.threads.listThreadsByUserId,
         {
           userId,
-          paginationOpts: { cursor: null, numItems: 50 }
+          paginationOpts: { cursor: null, numItems: 50 },
         }
       );
-      
+
       return threads.page.map((thread: any) => ({
         _id: thread._id,
         title: thread.title || "Untitled",
@@ -173,7 +196,7 @@ export const deleteThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to delete threads");
     }
-    
+
     try {
       const agent = createGPThreeAgent(defaultModelId);
       await agent.deleteThreadAsync(ctx, { threadId });
@@ -200,7 +223,7 @@ export const listThreadMessages = query({
           numItems: 100,
         },
       });
-      
+
       return messages.page;
     } catch (error) {
       console.log("Failed to fetch messages:", error);
@@ -208,4 +231,3 @@ export const listThreadMessages = query({
     }
   },
 });
-
