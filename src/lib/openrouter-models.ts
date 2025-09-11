@@ -329,7 +329,7 @@ async function fetchZDRModels(): Promise<string[]> {
       .filter(Boolean) as string[]; // Type assertion after filtering out nulls
     
     return zdrModelIds;
-  } catch (error) {
+  } catch {
     console.warn('Failed to fetch ZDR models, falling back to heuristic classification');
     return [];
   }

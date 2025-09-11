@@ -38,19 +38,16 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [modelCategories, setModelCategories] = useState<ModelCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Load models on component mount
   useEffect(() => {
     async function loadModels() {
       try {
         setIsLoading(true);
-        setError(null);
         const models = await fetchOpenRouterModels();
         setModelCategories(models);
       } catch (err) {
         console.error('Failed to load OpenRouter models, using fallback:', err);
-        setError('Using cached models');
         setModelCategories(getFallbackModels());
       } finally {
         setIsLoading(false);

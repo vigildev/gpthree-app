@@ -1,13 +1,11 @@
 "use client";
 
-import { Send, Sparkles, Lock, Zap, Brain } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
 import { PrivacyBanner } from "@/components/privacy-banner";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
@@ -39,6 +37,21 @@ export function Dashboard({
   const [selectedQuickAction, setSelectedQuickAction] =
     useState<QuickAction | null>(null);
 
+  // All hooks must be at the top level
+  const createThread = useAction(api.agents.createThread);
+  const continueThread = useAction(api.agents.continueThread);
+
+  // Use regular Convex query to get messages for the current thread
+  const messages = useQuery(
+    api.agents.listThreadMessages,
+    currentThreadId ? { threadId: currentThreadId } : "skip"
+  );
+
+  // Clear local chat messages when thread changes
+  useEffect(() => {
+    setChatMessages([]);
+  }, [currentThreadId]);
+
   console.log({ ready, authenticated, user });
 
   if (!ready) {
@@ -57,21 +70,14 @@ export function Dashboard({
     );
   }
 
-  const createThread = useAction(api.agents.createThread);
-  const continueThread = useAction(api.agents.continueThread);
-
-  // Use regular Convex query to get messages for the current thread
-  const messages = useQuery(
-    api.agents.listThreadMessages,
-    currentThreadId ? { threadId: currentThreadId } : "skip"
-  );
-
   // Convert messages to UI format and ensure proper ordering (newest at bottom)
   const persistedMessages = messages
     ? messages
         .sort(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)
         ) // Sort by creation time
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((msg: any, index: number) => {
           // Debug: Log the message structure to understand the author field
           console.log("Message structure:", msg);
@@ -107,22 +113,11 @@ export function Dashboard({
         })
     : [];
 
-  // Clear local chat messages when thread changes
-  useEffect(() => {
-    setChatMessages([]);
-  }, [currentThreadId]);
-
   // Use persisted messages if available, otherwise use local state
   const displayMessages =
     currentThreadId && persistedMessages.length > 0
       ? persistedMessages
       : chatMessages;
-
-  // Handle model change - start new conversation
-  const handleModelChange = (newModel: string) => {
-    setSelectedModel(newModel);
-    // Model changes within the same thread are fine
-  };
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading || !user) return;
