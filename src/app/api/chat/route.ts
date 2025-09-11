@@ -319,8 +319,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (usageData && usageData.cost) {
       console.log('OpenRouter usage data:', usageData);
       
-      // Calculate refund amount
-      const refundAmount = calculateRefund(usageData.cost, PAYMENT_CONFIG.amount);
+      // Calculate refund amount using the full usage object
+      const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
       
       if (refundAmount > 0) {
         console.log(`Processing refund of ${refundAmount} lamports`);
