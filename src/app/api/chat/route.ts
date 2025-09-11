@@ -4,15 +4,49 @@ import { api } from "../../../../convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// x402 Payment configuration
+// x402 Payment configuration with fixed upfront amount
 const PAYMENT_CONFIG = {
-  amount: 1000000, // 0.001 SOL in lamports
+  amount: 12500000, // 0.0125 SOL in lamports (~$2.50 at $200/SOL) - covers most expensive requests
   currency: "SOL",
   network: "solana-devnet",
   facilitatorUrl: "https://facilitator.payai.network",
   recipientAddress: process.env.TREASURY_WALLET_ADDRESS || "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4",
-  description: "AI Chat Request - GPThree Assistant",
+  description: "AI Chat Request - GPThree Assistant (Pay-per-use with refund)",
 };
+
+// Fee structure constants
+const SERVICE_FEE_PCT = 0.20; // 20% service fee
+const MIN_FEE_USD = 0.002; // $0.002 minimum fee
+const SOL_PRICE_USD = 200; // Approximate SOL price (could be made dynamic)
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+// Calculate refund amount based on actual usage
+function calculateRefund(actualCostCredits: number, paidLamports: number): number {
+  // Convert OpenRouter credits to USD (1 credit = $1)
+  const actualCostUSD = actualCostCredits;
+  
+  // Apply our service fee
+  const serviceFee = Math.max(actualCostUSD * SERVICE_FEE_PCT, MIN_FEE_USD);
+  const totalOwedUSD = actualCostUSD + serviceFee;
+  
+  // Convert amounts to SOL
+  const paidSOL = paidLamports / LAMPORTS_PER_SOL;
+  const paidUSD = paidSOL * SOL_PRICE_USD;
+  
+  // Calculate refund
+  const refundUSD = Math.max(0, paidUSD - totalOwedUSD);
+  const refundSOL = refundUSD / SOL_PRICE_USD;
+  const refundLamports = Math.floor(refundSOL * LAMPORTS_PER_SOL);
+  
+  console.log(`Refund calculation:`);
+  console.log(`- Actual cost: $${actualCostUSD.toFixed(6)}`);
+  console.log(`- Service fee: $${serviceFee.toFixed(6)}`);
+  console.log(`- Total owed: $${totalOwedUSD.toFixed(6)}`);
+  console.log(`- Paid: $${paidUSD.toFixed(6)}`);
+  console.log(`- Refund: $${refundUSD.toFixed(6)} (${refundLamports} lamports)`);
+  
+  return refundLamports;
+}
 
 const feePayer = await getFeePayerFromFacilitator();
 
