@@ -13,9 +13,13 @@ const getAuthUserId = async (ctx: any) => {
   return ctx.auth?.userId || null;
 };
 
-// Create OpenRouter instance
+// Create OpenRouter instance with usage accounting enabled
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
+  // Enable usage accounting for all requests
+  defaultOptions: {
+    usage: { include: true }
+  },
 });
 
 // Helper function to create GPThree agent with specified model and optional system enhancement
