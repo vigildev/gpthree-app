@@ -8,7 +8,8 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 const PAYMENT_CONFIG = {
   amount: 2500000, // $2.5 USDC
   currency: "USDC",
-  network: "solana-devnet",
+  network: process.env.NETWORK,
+  asset: process.env.ASSET,
   facilitatorUrl: "https://facilitator.payai.network",
   recipientAddress: process.env.TREASURY_WALLET_ADDRESS,
   description: "AI Chat Request - GPThree Assistant (Pay-per-use with refund)",
@@ -63,7 +64,7 @@ const paymentRequirements = {
   mimeType: "application/json",
   payTo: PAYMENT_CONFIG.recipientAddress,
   maxTimeoutSeconds: 300,
-  asset: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Use USDC based on network
+  asset: PAYMENT_CONFIG.asset, // Use USDC based on network
   outputSchema: {},
   extra: {
     feePayer, // Dynamic fee payer from facilitator
