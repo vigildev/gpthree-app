@@ -27,7 +27,7 @@ const LAMPORTS_PER_SOL = 1_000_000_000;
 function createCustomPaymentFetch(
   fetchFn: typeof fetch,
   solanaWallet: any,
-  maxValue: bigint = BigInt(0.01 * LAMPORTS_PER_SOL) // Allow up to 0.01 SOL (10M lamports)
+  maxValue: bigint = BigInt(0.02 * LAMPORTS_PER_SOL) // Allow up to 0.02 SOL (20M lamports)
 ) {
   return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
     // Make initial request

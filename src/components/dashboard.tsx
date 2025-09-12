@@ -10,6 +10,7 @@ import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
+import { PaymentTest } from "@/components/payment-test";
 
 interface DashboardProps {
   threadId?: string;
@@ -51,8 +52,6 @@ export function Dashboard({
   useEffect(() => {
     setChatMessages([]);
   }, [currentThreadId]);
-
-  console.log({ ready, authenticated, user });
 
   if (!ready) {
     return (
@@ -150,7 +149,10 @@ export function Dashboard({
         const aiChatMessage = {
           key: `ai-${Date.now()}`,
           role: "assistant" as const,
-          content: typeof response === 'string' ? response : response.text || 'No response',
+          content:
+            typeof response === "string"
+              ? response
+              : response.text || "No response",
           status: "complete" as const,
         };
         setChatMessages((prev) => [...prev, aiChatMessage]);
@@ -215,6 +217,11 @@ export function Dashboard({
 
       {/* Privacy Banner */}
       <PrivacyBanner />
+
+      {/* x402 Payment Test - Development Only */}
+      <div className="mb-8">
+        <PaymentTest />
+      </div>
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
