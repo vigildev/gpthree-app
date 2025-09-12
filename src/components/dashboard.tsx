@@ -9,6 +9,7 @@ import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
+import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 import { PaymentTest } from "@/components/payment-test";
 
@@ -41,6 +42,7 @@ export function Dashboard({
   // All hooks must be at the top level
   const createThread = useAction(api.agents.createThread);
   const continueThread = useAction(api.agents.continueThread);
+  const { makePaymentRequest } = usePaidRequest();
 
   // Use regular Convex query to get messages for the current thread
   const messages = useQuery(
@@ -135,49 +137,57 @@ export function Dashboard({
     setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
-      if (currentThreadId) {
-        // Continue existing thread
-        const response = await continueThread({
-          prompt: userMessage,
-          threadId: currentThreadId,
-          model: selectedModel,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Continue thread response:", response);
+      // Use x402 payment system via API route instead of direct Convex calls
+      const requestBody = {
+        prompt: userMessage,
+        model: selectedModel,
+        userId: user.id,
+        systemEnhancement: selectedQuickAction?.systemEnhancement,
+        ...(currentThreadId && { threadId: currentThreadId }),
+      };
 
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content:
-            typeof response === "string"
-              ? response
-              : response.text || "No response",
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
-      } else {
-        // Create new thread
-        const response = await createThread({
-          prompt: userMessage,
-          model: selectedModel,
-          userId: user.id,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Create thread response:", response);
+      console.log("Making x402 payment request to /api/chat...");
+      const response = await makePaymentRequest("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content: response.text,
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
-
-        // Notify parent component about the new thread
-        onThreadChange?.(response.threadId);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      const result = await response.json();
+      console.log("x402 API response:", result);
+
+      // Handle the response based on whether it's a new thread or continuation
+      let aiResponseText: string;
+      let newThreadId: string | undefined;
+      
+      if (currentThreadId) {
+        // Continue existing thread - API returns just the text
+        aiResponseText = typeof result === "string" ? result : result.text || "No response";
+      } else {
+        // Create new thread - API returns { threadId, text }
+        aiResponseText = result.text || "No response";
+        newThreadId = result.threadId;
+        
+        // Notify parent component about the new thread
+        if (newThreadId) {
+          onThreadChange?.(newThreadId);
+        }
+      }
+
+      // Add AI response to chat
+      const aiChatMessage = {
+        key: `ai-${Date.now()}`,
+        role: "assistant" as const,
+        content: aiResponseText,
+        status: "complete" as const,
+      };
+      setChatMessages((prev) => [...prev, aiChatMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
 
