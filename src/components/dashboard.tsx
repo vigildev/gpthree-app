@@ -165,15 +165,16 @@ export function Dashboard({
       // Handle the response based on whether it's a new thread or continuation
       let aiResponseText: string;
       let newThreadId: string | undefined;
-      
+
       if (currentThreadId) {
         // Continue existing thread - API returns just the text
-        aiResponseText = typeof result === "string" ? result : result.text || "No response";
+        aiResponseText =
+          typeof result === "string" ? result : result.text || "No response";
       } else {
         // Create new thread - API returns { threadId, text }
         aiResponseText = result.text || "No response";
         newThreadId = result.threadId;
-        
+
         // Notify parent component about the new thread
         if (newThreadId) {
           onThreadChange?.(newThreadId);
@@ -229,9 +230,9 @@ export function Dashboard({
       <PrivacyBanner />
 
       {/* x402 Payment Test - Development Only */}
-      <div className="mb-8">
+      {/* <div className="mb-8">
         <PaymentTest />
-      </div>
+      </div> */}
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
