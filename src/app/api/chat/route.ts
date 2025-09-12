@@ -6,42 +6,35 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // x402 Payment configuration with fixed upfront amount
 const PAYMENT_CONFIG = {
-  amount: 12500000, // 0.0125 SOL in lamports (~$2.50 at $200/SOL) - covers most expensive requests
-  currency: "SOL",
+  amount: 2500000, // $2.5 USDC
+  currency: "USDC",
   network: "solana-devnet",
   facilitatorUrl: "https://facilitator.payai.network",
-  recipientAddress: process.env.TREASURY_WALLET_ADDRESS || "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4",
+  recipientAddress: process.env.TREASURY_WALLET_ADDRESS,
   description: "AI Chat Request - GPThree Assistant (Pay-per-use with refund)",
 };
 
 // Fee structure constants
 const SERVICE_FEE_PCT = 0.20; // 20% service fee
 const MIN_FEE_USD = 0.002; // $0.002 minimum fee
-const SOL_PRICE_USD = 200; // Approximate SOL price (could be made dynamic)
-const LAMPORTS_PER_SOL = 1_000_000_000;
 
 // Calculate refund amount based on actual OpenRouter usage
-function calculateRefund(usageData: any, paidLamports: number): number {
+function calculateRefund(usageData: any, paidUSD: number): number {
   if (!usageData || typeof usageData.cost !== 'number') {
     console.log('Invalid or missing usage data, no refund calculated');
     return 0;
   }
-  
+
   // OpenRouter cost is in credits (1 credit = $1 USD)
-  const actualCostUSD = usageData.cost;
+  // convert to USDC by adding 6 zeros for the USDC decimals
+  const actualCostUSD = usageData.cost * 1000000;
   
   // Apply our service fee (20% markup or minimum $0.002)
   const serviceFee = Math.max(actualCostUSD * SERVICE_FEE_PCT, MIN_FEE_USD);
   const totalOwedUSD = actualCostUSD + serviceFee;
   
-  // Convert amounts to SOL
-  const paidSOL = paidLamports / LAMPORTS_PER_SOL;
-  const paidUSD = paidSOL * SOL_PRICE_USD;
-  
   // Calculate refund
   const refundUSD = Math.max(0, paidUSD - totalOwedUSD);
-  const refundSOL = refundUSD / SOL_PRICE_USD;
-  const refundLamports = Math.floor(refundSOL * LAMPORTS_PER_SOL);
   
   console.log(`Refund calculation:`);
   console.log(`- OpenRouter usage:`, {
@@ -50,13 +43,13 @@ function calculateRefund(usageData: any, paidLamports: number): number {
     total_tokens: usageData.total_tokens,
     cost_credits: usageData.cost,
   });
-  console.log(`- Actual cost: $${actualCostUSD.toFixed(6)}`);
-  console.log(`- Service fee: $${serviceFee.toFixed(6)}`);
-  console.log(`- Total owed: $${totalOwedUSD.toFixed(6)}`);
-  console.log(`- Paid: $${paidUSD.toFixed(6)}`);
-  console.log(`- Refund: $${refundUSD.toFixed(6)} (${refundLamports} lamports)`);
+  console.log(`- Actual cost: $${(actualCostUSD / 1000000).toFixed(6)}`);
+  console.log(`- Service fee: $${(serviceFee / 1000000).toFixed(6)}`);
+  console.log(`- Total owed: $${(totalOwedUSD / 1000000).toFixed(6)}`);
+  console.log(`- Paid: $${(paidUSD / 1000000).toFixed(6)}`);
+  console.log(`- Refund: $${(refundUSD / 1000000).toFixed(6)}`);
   
-  return refundLamports;
+  return refundUSD;
 }
 
 const feePayer = await getFeePayerFromFacilitator();
@@ -65,12 +58,12 @@ const paymentRequirements = {
   scheme: "exact",
   network: PAYMENT_CONFIG.network,
   maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
-  resource: "http://localhost:3000/api/chat", // Full URL as per spec
+  resource: `${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`, // Full URL as per spec
   description: PAYMENT_CONFIG.description,
   mimeType: "application/json",
   payTo: PAYMENT_CONFIG.recipientAddress,
   maxTimeoutSeconds: 300,
-  asset: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Use native SOL instead of wrapped SOL for simplicity
+  asset: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Use USDC based on network
   outputSchema: {},
   extra: {
     feePayer, // Dynamic fee payer from facilitator
@@ -322,17 +315,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
       
       if (refundAmount > 0) {
-        console.log(`Processing refund of ${refundAmount} lamports`);
+        console.log(`Processing refund of ${refundAmount} USDC`);
         
         // TODO: Implement async refund processing
         // This would involve:
         // 1. Getting user's wallet address from payment header
-        // 2. Creating a Solana transfer transaction
+        // 2. Creating a USDC transfer transaction
         // 3. Executing the refund transfer
         // 4. Logging the transaction for audit
         
         // For now, just log the intended refund
-        console.log(`Refund queued: ${refundAmount} lamports to user`);
+        console.log(`Refund queued: ${refundAmount} USDC to user`);
       }
     } else {
       console.log('No usage data available for refund calculation');

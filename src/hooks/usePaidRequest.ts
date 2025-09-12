@@ -21,13 +21,12 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 
-const LAMPORTS_PER_SOL = 1_000_000_000;
 
 // Custom x402 payment interceptor based on the official PR implementation
 function createCustomPaymentFetch(
   fetchFn: typeof fetch,
   solanaWallet: any,
-  maxValue: bigint = BigInt(0.02 * LAMPORTS_PER_SOL) // Allow up to 0.02 SOL (20M lamports)
+  maxValue: bigint = BigInt(0)
 ) {
   return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
     // Make initial request
@@ -145,63 +144,56 @@ async function createCustomSolanaPaymentHeader(
   // 2b) set compute price
   instructions.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1 }));
 
-  const isNativeSol = !paymentRequirements.asset || paymentRequirements.asset === "native";
-  if (isNativeSol) {
-    // Native SOL transfer (no ATA needed)
-    const lamports = BigInt(paymentRequirements.maxAmountRequired);
+
+  // SPL token or Token-2022
+  if (!paymentRequirements.asset) {
+    throw new Error("Missing token mint for SPL transfer");
+  }
+  const mintPubkey = new PublicKey(paymentRequirements.asset as string);
+
+  // Determine program (token vs token-2022) by reading mint owner
+  const mintInfo = await connection.getAccountInfo(mintPubkey, "confirmed");
+  const programId =
+    mintInfo?.owner?.toBase58() === TOKEN_2022_PROGRAM_ID.toBase58()
+      ? TOKEN_2022_PROGRAM_ID
+      : TOKEN_PROGRAM_ID;
+
+  // Fetch mint to get decimals
+  const mint = await getMint(connection, mintPubkey, undefined, programId);
+
+  // Derive source and destination ATAs
+  const sourceAta = await getAssociatedTokenAddress(mintPubkey, userPubkey, false, programId);
+  const destinationAta = await getAssociatedTokenAddress(mintPubkey, destination, false, programId);
+
+  // 2c) create ATA for destination if missing (payer = facilitator)
+  const destAtaInfo = await connection.getAccountInfo(destinationAta, "confirmed");
+  if (!destAtaInfo) {
     instructions.push(
-      SystemProgram.transfer({ fromPubkey: userPubkey, toPubkey: destination, lamports: Number(lamports) })
-    );
-  } else {
-    // SPL token or Token-2022
-    if (!paymentRequirements.asset) {
-      throw new Error("Missing token mint for SPL transfer");
-    }
-    const mintPubkey = new PublicKey(paymentRequirements.asset as string);
-
-    // Determine program (token vs token-2022) by reading mint owner
-    const mintInfo = await connection.getAccountInfo(mintPubkey, "confirmed");
-    const programId =
-      mintInfo?.owner?.toBase58() === TOKEN_2022_PROGRAM_ID.toBase58()
-        ? TOKEN_2022_PROGRAM_ID
-        : TOKEN_PROGRAM_ID;
-
-    // Fetch mint to get decimals
-    const mint = await getMint(connection, mintPubkey, undefined, programId);
-
-    // Derive source and destination ATAs
-    const sourceAta = await getAssociatedTokenAddress(mintPubkey, userPubkey, false, programId);
-    const destinationAta = await getAssociatedTokenAddress(mintPubkey, destination, false, programId);
-
-    // 2c) create ATA for destination if missing (payer = facilitator)
-    const destAtaInfo = await connection.getAccountInfo(destinationAta, "confirmed");
-    if (!destAtaInfo) {
-      instructions.push(
-        createAssociatedTokenAccountInstruction(
-          feePayerPubkey,
-          destinationAta,
-          destination,
-          mintPubkey,
-          programId
-        )
-      );
-    }
-
-    // 2d) TransferChecked (spl-token or token-2022)
-    const amount = BigInt(paymentRequirements.maxAmountRequired);
-    instructions.push(
-      createTransferCheckedInstruction(
-        sourceAta,
-        mintPubkey,
+      createAssociatedTokenAccountInstruction(
+        feePayerPubkey,
         destinationAta,
-        userPubkey,
-        amount,
-        mint.decimals,
-        [],
+        destination,
+        mintPubkey,
         programId
       )
     );
   }
+
+  // 2d) TransferChecked (spl-token or token-2022)
+  const amount = BigInt(paymentRequirements.maxAmountRequired);
+  instructions.push(
+    createTransferCheckedInstruction(
+      sourceAta,
+      mintPubkey,
+      destinationAta,
+      userPubkey,
+      amount,
+      mint.decimals,
+      [],
+      programId
+    )
+  );
+
 
   // 3) Set the recentBlockhash
   const { blockhash } = await connection.getLatestBlockhash("confirmed");
@@ -282,7 +274,8 @@ export function usePaidRequest() {
         // Create custom payment fetch function
         const paymentFetch = createCustomPaymentFetch(
           fetch.bind(window),
-          solanaWallet
+          solanaWallet,
+          BigInt(10000000) // 10 USDC max allowed for safety
         );
 
         console.log("Making request with custom x402 payment interceptor...");
