@@ -81,7 +81,7 @@ export function Dashboard({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((msg: any, index: number) => {
           // Debug: Log the message structure to understand the author field
-          console.log("Message structure:", msg);
+          // console.log("Message structure:", msg);
 
           // Role detection based on actual Convex Agent structure
           const isUserMessage =

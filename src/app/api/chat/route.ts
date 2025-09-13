@@ -16,27 +16,27 @@ const PAYMENT_CONFIG = {
 };
 
 // Fee structure constants
-const SERVICE_FEE_PCT = 0.20; // 20% service fee
+const SERVICE_FEE_PCT = 0.2; // 20% service fee
 const MIN_FEE_USD = 0.002; // $0.002 minimum fee
 
 // Calculate refund amount based on actual OpenRouter usage
 function calculateRefund(usageData: any, paidUSD: number): number {
-  if (!usageData || typeof usageData.cost !== 'number') {
-    console.log('Invalid or missing usage data, no refund calculated');
+  if (!usageData || typeof usageData.cost !== "number") {
+    console.log("Invalid or missing usage data, no refund calculated");
     return 0;
   }
 
   // OpenRouter cost is in credits (1 credit = $1 USD)
   // convert to USDC by adding 6 zeros for the USDC decimals
   const actualCostUSD = usageData.cost * 1000000;
-  
+
   // Apply our service fee (20% markup or minimum $0.002)
   const serviceFee = Math.max(actualCostUSD * SERVICE_FEE_PCT, MIN_FEE_USD);
   const totalOwedUSD = actualCostUSD + serviceFee;
-  
+
   // Calculate refund
   const refundUSD = Math.max(0, paidUSD - totalOwedUSD);
-  
+
   console.log(`Refund calculation:`);
   console.log(`- OpenRouter usage:`, {
     prompt_tokens: usageData.prompt_tokens,
@@ -49,7 +49,7 @@ function calculateRefund(usageData: any, paidUSD: number): number {
   console.log(`- Total owed: $${(totalOwedUSD / 1000000).toFixed(6)}`);
   console.log(`- Paid: $${(paidUSD / 1000000).toFixed(6)}`);
   console.log(`- Refund: $${(refundUSD / 1000000).toFixed(6)}`);
-  
+
   return refundUSD;
 }
 
@@ -86,16 +86,19 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
       JSON.stringify(paymentPayload, null, 2)
     );
 
-    console.log("preparing payload to send to facilitator")
+    console.log("preparing payload to send to facilitator");
     const verifyPayload = {
       x402Version: paymentPayload.x402Version,
       paymentPayload: paymentPayload,
       paymentRequirements,
-    }
-    console.log("verifyPayload", verifyPayload)
+    };
+    console.log("verifyPayload", verifyPayload);
     console.log("Sending verify payload to facilitator verify endpoint");
-    console.log("Full payload being sent to facilitator:", JSON.stringify(verifyPayload, null, 2));
-    
+    console.log(
+      "Full payload being sent to facilitator:",
+      JSON.stringify(verifyPayload, null, 2)
+    );
+
     // Log the exact JSON string being sent
     const payloadString = JSON.stringify(verifyPayload);
 
@@ -111,9 +114,24 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     const responseText = await response.text();
     console.log("Facilitator response body:", responseText);
 
+    // Parse the JSON response to check isValid field
+    let facilitatorResponse;
+    try {
+      facilitatorResponse = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse facilitator response:", parseError);
+      return false;
+    }
+
+    // Check both HTTP status and isValid field
+    const isValid = response.ok && facilitatorResponse.isValid === true;
+
     // If verification fails, log additional debugging info
-    if (!response.ok) {
+    if (!isValid) {
       console.log("Payment verification failed!");
+      console.log("HTTP Status OK:", response.ok);
+      console.log("Facilitator isValid:", facilitatorResponse.isValid);
+      console.log("Invalid reason:", facilitatorResponse.invalidReason);
       console.log("Request URL:", `${PAYMENT_CONFIG.facilitatorUrl}/verify`);
       console.log("Request payload structure:");
       console.log("- x402Version:", paymentPayload.x402Version);
@@ -129,7 +147,7 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
       );
     }
 
-    return response.ok;
+    return isValid;
   } catch (error) {
     console.error("Payment verification failed:", error);
     return false;
@@ -151,16 +169,19 @@ async function settlePayment(paymentHeader: string): Promise<boolean> {
       JSON.stringify(paymentPayload, null, 2)
     );
 
-    console.log("preparing payload to send to facilitator")
+    console.log("preparing payload to send to facilitator");
     const settlePayload = {
       x402Version: paymentPayload.x402Version,
       paymentPayload: paymentPayload,
       paymentRequirements,
-    }
-    console.log("settlePayload", settlePayload)
+    };
+    console.log("settlePayload", settlePayload);
     console.log("Sending settle payload to facilitator settle endpoint");
-    console.log("Full payload being sent to facilitator:", JSON.stringify(settlePayload, null, 2));
-    
+    console.log(
+      "Full payload being sent to facilitator:",
+      JSON.stringify(settlePayload, null, 2)
+    );
+
     // Log the exact JSON string being sent
     const payloadString = JSON.stringify(settlePayload);
 
@@ -176,9 +197,24 @@ async function settlePayment(paymentHeader: string): Promise<boolean> {
     const responseText = await response.text();
     console.log("Facilitator response body:", responseText);
 
-    // If verification fails, log additional debugging info
-    if (!response.ok) {
+    // Parse the JSON response to check success field
+    let facilitatorResponse;
+    try {
+      facilitatorResponse = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Failed to parse facilitator response:", parseError);
+      return false;
+    }
+
+    // Check both HTTP status and success field
+    const isSuccessful = response.ok && facilitatorResponse.success === true;
+
+    // If settlement fails, log additional debugging info
+    if (!isSuccessful) {
       console.log("Payment settlement failed!");
+      console.log("HTTP Status OK:", response.ok);
+      console.log("Facilitator success:", facilitatorResponse.success);
+      console.log("Error reason:", facilitatorResponse.errorReason);
       console.log("Request URL:", `${PAYMENT_CONFIG.facilitatorUrl}/settle`);
       console.log("Request payload structure:");
       console.log("- x402Version:", paymentPayload.x402Version);
@@ -194,7 +230,7 @@ async function settlePayment(paymentHeader: string): Promise<boolean> {
       );
     }
 
-    return response.ok;
+    return isSuccessful;
   } catch (error) {
     console.error("Payment verification failed:", error);
     return false;
@@ -240,7 +276,6 @@ async function getFeePayerFromFacilitator(): Promise<string> {
 
 // Helper function to create 402 response with payment requirements
 async function create402Response(): Promise<NextResponse> {
-
   const responseBody = {
     x402Version: 1,
     accepts: [paymentRequirements],
@@ -271,7 +306,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Verify payment with facilitator
     const paymentValid = await verifyPayment(paymentHeader);
     if (!paymentValid) {
-      return NextResponse.json({ error: "Invalid payment" }, { status: 402 });
+      return NextResponse.json(
+        {
+          error: "Payment verification failed",
+          details:
+            "The facilitator rejected the payment transaction. Check server logs for details.",
+        },
+        { status: 402 }
+      );
     }
 
     // Parse request body
@@ -307,45 +349,48 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Extract usage information from the result
     const usageData = (result as any).usage || null;
-    console.log('Raw result from Convex:', result);
-    
+    console.log("Raw result from Convex:", result);
+
     if (usageData && usageData.cost) {
-      console.log('OpenRouter usage data:', usageData);
-      
+      console.log("OpenRouter usage data:", usageData);
+
       // Calculate refund amount using the full usage object
       const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
-      
+
       if (refundAmount > 0) {
         console.log(`Processing refund of ${refundAmount} USDC`);
-        
+
         // TODO: Implement async refund processing
         // This would involve:
         // 1. Getting user's wallet address from payment header
         // 2. Creating a USDC transfer transaction
         // 3. Executing the refund transfer
         // 4. Logging the transaction for audit
-        
+
         // For now, just log the intended refund
         console.log(`Refund queued: ${refundAmount} USDC to user`);
       }
     } else {
-      console.log('No usage data available for refund calculation');
+      console.log("No usage data available for refund calculation");
     }
 
-  // settle payment with facilitator
-  const paymentSettled = await settlePayment(paymentHeader);
-  if (!paymentSettled) {
-    return NextResponse.json({ error: "Payment settlement failed" }, { status: 402 });
-  }
+    // settle payment with facilitator
+    const paymentSettled = await settlePayment(paymentHeader);
+    if (!paymentSettled) {
+      return NextResponse.json(
+        { error: "Payment settlement failed" },
+        { status: 402 }
+      );
+    }
 
     // Return the AI response in the expected format
     // For continueThread, we need to normalize the response format
-    if (threadId && result && typeof result === 'object' && 'text' in result) {
+    if (threadId && result && typeof result === "object" && "text" in result) {
       // continueThread now returns { text, usage }, but frontend expects just the text
       // So we return the text, but we already processed the usage for refund
       return NextResponse.json(result.text);
     }
-    
+
     // For createThread, return as-is (already has correct format)
     return NextResponse.json(result);
   } catch (error) {
