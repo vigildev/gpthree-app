@@ -301,10 +301,19 @@ function createPaymentHeaderFromTransaction(
   paymentRequirements: PaymentRequirements,
   x402Version: number
 ): string {
-  // Serialize the transaction to send to backend
-  const serializedTransaction = Buffer.from(transaction.serialize()).toString(
-    "base64"
-  );
+  // IMPORTANT: Use the original transaction structure, not the wallet-modified one
+  // The wallet adds ComputeBudget instructions that the facilitator rejects
+  // But we still need the user's signature from the signed transaction
+  
+  // Use the passed transaction as-is since it should already be properly constructed
+  console.log("Using transaction for facilitator:", {
+    instructionCount: transaction.message.compiledInstructions.length,
+    serializedLength: transaction.serialize().length,
+    signaturesCount: transaction.signatures.length
+  });
+  
+  // Serialize the transaction
+  const serializedTransaction = Buffer.from(transaction.serialize()).toString('base64');
 
   // Create payment payload exactly like the official PR
   const paymentPayload = {
@@ -449,19 +458,14 @@ async function createCustomSolanaPaymentHeader(
   if (!destAtaInfo) {
     console.log("Destination ATA doesn't exist, creating it...");
 
-    // Manual CreateATA instruction to ensure compatibility with facilitator parser
-    const createAtaInstruction = new TransactionInstruction({
-      keys: [
-        { pubkey: feePayerPubkey, isSigner: true, isWritable: true }, // payer
-        { pubkey: destinationAta, isSigner: false, isWritable: true }, // ATA to create
-        { pubkey: destination, isSigner: false, isWritable: false }, // owner
-        { pubkey: mintPubkey, isSigner: false, isWritable: false }, // mint
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system program
-        { pubkey: programId, isSigner: false, isWritable: false }, // token program
-      ],
-      programId: new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"), // ATA program
-      data: Buffer.alloc(0), // Empty data for CreateATA
-    });
+    // Use standard @solana/spl-token createAssociatedTokenAccountInstruction
+    const createAtaInstruction = createAssociatedTokenAccountInstruction(
+      feePayerPubkey, // payer (facilitator)
+      destinationAta, // ATA to create
+      destination, // owner (recipient)
+      mintPubkey, // mint
+      programId // token program
+    );
 
     instructions.push(createAtaInstruction);
   }
@@ -542,14 +546,41 @@ async function createCustomSolanaPaymentHeader(
     signaturesCount: userSignedTx.signatures.length,
   });
 
-  // The facilitator expects ComputeBudget instructions, so we use the signed transaction as-is
-  console.log(
-    "Final transaction instruction count:",
-    userSignedTx.message.compiledInstructions.length
-  );
+  // CRITICAL: Use the original transaction structure, not the wallet-modified version
+  // Phantom/Privy adds ComputeBudget instructions that the facilitator rejects
+  // But we need the user's signature from the signed transaction
+  
+  console.log("Extracting user signature from wallet-modified transaction...");
+  
+  // Find the user's signature (not the fee payer signature)
+  let userSignature = null;
+  for (let i = 0; i < userSignedTx.signatures.length; i++) {
+    if (userSignedTx.signatures[i] && userSignedTx.signatures[i].every(byte => byte !== 0)) {
+      // This signature is not all zeros, likely the user's signature
+      userSignature = userSignedTx.signatures[i];
+      console.log(`Found user signature at index ${i}`);
+      break;
+    }
+  }
+  
+  if (!userSignature) {
+    throw new Error("Could not find user signature in signed transaction");
+  }
+  
+  // Apply user signature to original clean transaction
+  const cleanTransaction = new VersionedTransaction(transaction.message);
+  // Set the user signature in the appropriate position
+  cleanTransaction.signatures = [...transaction.signatures];
+  cleanTransaction.signatures[1] = userSignature; // Assuming user is signer index 1
+  
+  console.log("Final clean transaction for facilitator:", {
+    instructionCount: cleanTransaction.message.compiledInstructions.length,
+    serializedLength: cleanTransaction.serialize().length,
+    hasValidUserSignature: !!userSignature
+  });
 
   return createPaymentHeaderFromTransaction(
-    userSignedTx,
+    cleanTransaction,
     paymentRequirements,
     x402Version
   );
