@@ -21,6 +21,7 @@ import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import { getCreateAssociatedTokenInstructionAsync } from "@solana-program/token-2022";
 
 // Custom x402 payment interceptor based on the official PR implementation
 function createCustomPaymentFetch(
@@ -457,23 +458,43 @@ async function createCustomSolanaPaymentHeader(
   if (!destAtaInfo) {
     console.log("Destination ATA doesn't exist, creating it...");
 
-    // Manual CreateATA instruction to match @solana-program/token-2022 format exactly
-    // Based on official Solana docs: getCreateAssociatedTokenInstructionAsync
-    const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    // Use official @solana-program/token-2022 function exactly like Solana docs
+    // Convert PublicKey objects to strings for type compatibility
+    const token2022Instruction = await getCreateAssociatedTokenInstructionAsync(
+      {
+        payer: feePayerPubkey.toString() as any,
+        mint: mintPubkey.toString() as any,
+        owner: destination.toString() as any,
+      }
     );
 
+    console.log(
+      "CreateATA instruction from @solana-program/token-2022:",
+      token2022Instruction
+    );
+
+    // Convert @solana/kit format to @solana/web3.js format
     const createAtaInstruction = new TransactionInstruction({
-      keys: [
-        { pubkey: feePayerPubkey, isSigner: true, isWritable: true }, // payer
-        { pubkey: destinationAta, isSigner: false, isWritable: true }, // associatedToken
-        { pubkey: destination, isSigner: false, isWritable: false }, // owner
-        { pubkey: mintPubkey, isSigner: false, isWritable: false }, // mint
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // systemProgram
-        { pubkey: programId, isSigner: false, isWritable: false }, // tokenProgram
-      ],
-      programId: ASSOCIATED_TOKEN_PROGRAM_ID,
-      data: Buffer.alloc(0), // CreateATA has empty data
+      keys: token2022Instruction.accounts.map((account: any) => ({
+        pubkey: new PublicKey(account.address),
+        isSigner: account.role === 1, // 1 = signer in @solana/kit
+        isWritable: account.role === 2 || account.role === 3, // 2 = writable, 3 = writable+signer
+      })),
+      programId: new PublicKey(token2022Instruction.programAddress),
+      data: Buffer.from(token2022Instruction.data),
+    });
+
+    console.log("Converted CreateATA instruction for @solana/web3.js:", {
+      programId: createAtaInstruction.programId.toString(),
+      keysLength: createAtaInstruction.keys.length,
+      dataLength: createAtaInstruction.data.length,
+      keys: createAtaInstruction.keys.map((key, index) => ({
+        index,
+        pubkey: key.pubkey.toString(),
+        isSigner: key.isSigner,
+        isWritable: key.isWritable,
+      })),
+      data: Array.from(createAtaInstruction.data),
     });
 
     instructions.push(createAtaInstruction);
