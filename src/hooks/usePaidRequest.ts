@@ -21,7 +21,6 @@ import {
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
-import { getCreateAssociatedTokenInstructionAsync } from "@solana-program/token-2022";
 
 // Custom x402 payment interceptor based on the official PR implementation
 function createCustomPaymentFetch(
@@ -458,34 +457,30 @@ async function createCustomSolanaPaymentHeader(
   if (!destAtaInfo) {
     console.log("Destination ATA doesn't exist, creating it...");
 
-    // Use official @solana-program/token-2022 function exactly like Solana docs
-    // Convert PublicKey objects to strings for type compatibility
-    const token2022Instruction = await getCreateAssociatedTokenInstructionAsync(
-      {
-        payer: feePayerPubkey.toString() as any,
-        mint: mintPubkey.toString() as any,
-        owner: destination.toString() as any,
-      }
+    // Instead of using @solana-program/token-2022 which forces TOKEN_2022_PROGRAM_ID,
+    // create the instruction manually to match the detected program
+    const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
     );
 
-    console.log(
-      "CreateATA instruction from @solana-program/token-2022:",
-      token2022Instruction
-    );
-
-    // Convert @solana/kit format to @solana/web3.js format
     const createAtaInstruction = new TransactionInstruction({
-      keys: token2022Instruction.accounts.map((account: any) => ({
-        pubkey: new PublicKey(account.address),
-        isSigner: account.role === 1, // 1 = signer in @solana/kit
-        isWritable: account.role === 2 || account.role === 3, // 2 = writable, 3 = writable+signer
-      })),
-      programId: new PublicKey(token2022Instruction.programAddress),
-      data: Buffer.from(token2022Instruction.data),
+      keys: [
+        { pubkey: feePayerPubkey, isSigner: true, isWritable: true }, // payer
+        { pubkey: destinationAta, isSigner: false, isWritable: true }, // ATA
+        { pubkey: destination, isSigner: false, isWritable: false }, // owner
+        { pubkey: mintPubkey, isSigner: false, isWritable: false }, // mint
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system program
+        { pubkey: programId, isSigner: false, isWritable: false }, // use DETECTED program (not forced TOKEN_2022)
+      ],
+      programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+      data: Buffer.from([0]), // CreateATA discriminator
     });
 
-    console.log("Converted CreateATA instruction for @solana/web3.js:", {
+    console.log("Manual CreateATA instruction with consistent program:", {
       programId: createAtaInstruction.programId.toString(),
+      tokenProgram: programId.toString(),
+      consistentPrograms:
+        "Both CreateATA and Transfer use same detected program",
       keysLength: createAtaInstruction.keys.length,
       dataLength: createAtaInstruction.data.length,
       keys: createAtaInstruction.keys.map((key, index) => ({
