@@ -21,6 +21,8 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_PRIVY_APP_ID: z.string().min(1),
     NEXT_PUBLIC_CONVEX_URL: z.string().url(),
+    NEXT_PUBLIC_SOLANA_RPC_MAINNET: z.string().url().optional(),
+    NEXT_PUBLIC_SOLANA_RPC_DEVNET: z.string().url().optional(),
   },
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
@@ -35,5 +37,7 @@ export const env = createEnv({
     PRIVY_APP_SECRET: process.env.PRIVY_APP_SECRET,
     NEXT_PUBLIC_PRIVY_APP_ID: process.env.NEXT_PUBLIC_PRIVY_APP_ID,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
+    NEXT_PUBLIC_SOLANA_RPC_MAINNET: process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET,
+    NEXT_PUBLIC_SOLANA_RPC_DEVNET: process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET,
   },
 });

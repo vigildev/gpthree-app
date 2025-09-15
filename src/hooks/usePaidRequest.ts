@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { type PaymentRequirements } from "../lib/x402-solana-types";
+import { env } from "@/env.mjs";
 import {
   PublicKey,
   Connection,
@@ -92,10 +93,12 @@ function createCustomPaymentFetch(
 
 // Helper function to get RPC client - simplified for now
 function getRpcClient(network: string) {
+  // Use custom RPC URLs from environment if available, fallback to public RPCs
   const rpcUrl =
     network === "solana"
-      ? "https://api.mainnet-beta.solana.com"
-      : "https://api.devnet.solana.com";
+      ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
+        "https://api.mainnet-beta.solana.com"
+      : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || "https://api.devnet.solana.com";
 
   // For now, use a simple web3.js Connection for compatibility
   // We'll replace this with proper Solana Kit RPC client later
@@ -349,9 +352,11 @@ async function createCustomSolanaPaymentHeader(
 
   // "https://api.mainnet-beta.solana.com"
 
+  // Use custom RPC URLs from environment if available, fallback to public RPCs
   const rpcUrl = isMainnet
-    ? process.env.SOLANA_RPC_URL_MAINNET!
-    : "https://api.devnet.solana.com";
+    ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
+      "https://api.mainnet-beta.solana.com"
+    : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || "https://api.devnet.solana.com";
 
   const connection = new Connection(rpcUrl, "confirmed");
 
