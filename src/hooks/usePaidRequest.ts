@@ -40,15 +40,12 @@ function createCustomPaymentFetch(
 
     // Parse payment requirements from 402 response
     const rawResponse = await response.json();
-    console.log("Raw 402 response:", rawResponse);
 
     // Parse the complete 402 response with proper schema validation
 
     const x402Version: number = rawResponse.x402Version as number;
     const parsedPaymentRequirements: PaymentRequirements[] =
       (rawResponse.accepts as PaymentRequirements[]) || [];
-    console.log("x402Version:", x402Version);
-    console.log("Payment requirements:", parsedPaymentRequirements);
 
     // Select first suitable payment requirement for Solana
     const selectedRequirements = parsedPaymentRequirements.find(
@@ -61,8 +58,6 @@ function createCustomPaymentFetch(
       throw new Error("No suitable Solana payment requirements found");
     }
 
-    console.log("Selected payment requirements:", selectedRequirements);
-
     // Check amount
     if (BigInt(selectedRequirements.maxAmountRequired) > maxValue) {
       throw new Error("Payment amount exceeds maximum allowed");
@@ -74,8 +69,6 @@ function createCustomPaymentFetch(
       x402Version,
       selectedRequirements
     );
-
-    console.log("Created payment header, retrying request...");
 
     // Retry with payment header
     const newInit = {
@@ -306,11 +299,6 @@ function createPaymentHeaderFromTransaction(
   x402Version: number
 ): string {
   // Serialize the signed transaction for the facilitator
-  console.log("Using transaction for facilitator:", {
-    instructionCount: transaction.message.compiledInstructions.length,
-    serializedLength: transaction.serialize().length,
-    signaturesCount: transaction.signatures.length,
-  });
 
   // Serialize the transaction
   const serializedTransaction = Buffer.from(transaction.serialize()).toString(
@@ -331,7 +319,6 @@ function createPaymentHeaderFromTransaction(
   const paymentHeader = Buffer.from(JSON.stringify(paymentPayload)).toString(
     "base64"
   );
-  console.log("Created payment header using official PR format");
 
   return paymentHeader;
 }
@@ -342,11 +329,6 @@ async function createCustomSolanaPaymentHeader(
   x402Version: number,
   paymentRequirements: PaymentRequirements
 ): Promise<string> {
-  console.log(
-    "Creating payment header using official PR pattern, but with web3js..."
-  );
-  console.log("solanaWallet", solanaWallet);
-
   // Build sponsored transaction with fee payer = facilitator
   const isMainnet = paymentRequirements.network === "solana";
 
@@ -377,21 +359,7 @@ async function createCustomSolanaPaymentHeader(
   }
   const destination = new PublicKey(paymentRequirements.payTo);
 
-  // Add payment details logging
-  console.log("Payment details:", {
-    asset: paymentRequirements.asset,
-    isNativeSol: false,
-    amount: paymentRequirements.maxAmountRequired,
-    userAddress: userPubkey.toString(),
-    destination: destination.toString(),
-    feePayer: feePayerPubkey.toString(),
-  });
-
   const instructions: any[] = [];
-
-  console.log(
-    "Adding required ComputeBudget instructions for facilitator compatibility"
-  );
 
   // The facilitator REQUIRES ComputeBudget instructions in positions 0 and 1
   // Position 0: setComputeUnitLimit (discriminator: 2)
@@ -427,11 +395,6 @@ async function createCustomSolanaPaymentHeader(
   // Check token balance (simplified for now)
   const requiredAmount =
     Number(paymentRequirements.maxAmountRequired) / Math.pow(10, mint.decimals);
-  console.log("Token balance check:", {
-    userBalance: "1000 USDC", // Placeholder - would normally check actual balance
-    required: `${requiredAmount} USDC`,
-    hasEnough: true, // Placeholder - would normally verify balance
-  });
 
   // Derive source and destination ATAs
   const sourceAta = await getAssociatedTokenAddress(
@@ -449,7 +412,6 @@ async function createCustomSolanaPaymentHeader(
 
   // Check if source ATA exists (user must already have token account)
   const sourceAtaInfo = await connection.getAccountInfo(sourceAta, "confirmed");
-  console.log("sourceAtaInfo: ", sourceAtaInfo);
   if (!sourceAtaInfo) {
     throw new Error(
       `User does not have an Associated Token Account for ${paymentRequirements.asset}. Please create one first or ensure you have the required token.`
@@ -461,10 +423,7 @@ async function createCustomSolanaPaymentHeader(
     destinationAta,
     "confirmed"
   );
-  console.log("destinationAtaInfo: ", destAtaInfo);
   if (!destAtaInfo) {
-    console.log("Destination ATA doesn't exist, creating it...");
-
     // Instead of using @solana-program/token-2022 which forces TOKEN_2022_PROGRAM_ID,
     // create the instruction manually to match the detected program
     const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey(
@@ -484,35 +443,11 @@ async function createCustomSolanaPaymentHeader(
       data: Buffer.from([0]), // CreateATA discriminator
     });
 
-    console.log("Manual CreateATA instruction with consistent program:", {
-      programId: createAtaInstruction.programId.toString(),
-      tokenProgram: programId.toString(),
-      consistentPrograms:
-        "Both CreateATA and Transfer use same detected program",
-      keysLength: createAtaInstruction.keys.length,
-      dataLength: createAtaInstruction.data.length,
-      keys: createAtaInstruction.keys.map((key, index) => ({
-        index,
-        pubkey: key.pubkey.toString(),
-        isSigner: key.isSigner,
-        isWritable: key.isWritable,
-      })),
-      data: Array.from(createAtaInstruction.data),
-    });
-
     instructions.push(createAtaInstruction);
   }
 
   // 2d) TransferChecked (spl-token or token-2022)
   const amount = BigInt(paymentRequirements.maxAmountRequired);
-  console.log("Creating minimal TransferChecked instruction:", {
-    from: sourceAta.toString(),
-    mint: mintPubkey.toString(),
-    to: destinationAta.toString(),
-    authority: userPubkey.toString(),
-    amount: amount.toString(),
-    decimals: mint.decimals,
-  });
 
   instructions.push(
     createTransferCheckedInstruction(
@@ -538,31 +473,6 @@ async function createCustomSolanaPaymentHeader(
 
   // Create transaction
   const transaction = new VersionedTransaction(message);
-  console.log("Transaction will have", instructions.length, "instruction(s)");
-  console.log("Using blockhash:", blockhash.substring(0, 8) + "...");
-  console.log("transaction", transaction);
-
-  console.log("Transaction debugging:", {
-    instructionCount: instructions.length,
-    accountKeysLength: message.staticAccountKeys.length,
-    feePayer: feePayerPubkey.toString(),
-  });
-
-  // Log each instruction for debugging
-  instructions.forEach((instruction, index) => {
-    console.log(`Instruction ${index}:`, {
-      programIdIndex: message.compiledInstructions[index]?.programIdIndex,
-      programId: instruction.programId?.toString() || "Unknown",
-      accountsLength:
-        message.compiledInstructions[index]?.accountKeyIndexes?.length || 0,
-      dataLength: message.compiledInstructions[index]?.data?.length || 0,
-    });
-  });
-
-  console.log("Transaction BEFORE wallet signing:", {
-    instructionCount: instructions.length,
-    serializedLength: transaction.serialize().length,
-  });
 
   // Partially sign the transaction with the user's wallet
   if (typeof solanaWallet?.signTransaction !== "function") {
@@ -570,41 +480,11 @@ async function createCustomSolanaPaymentHeader(
   }
 
   // Sign the transaction with the wallet
-  console.log("Signing transaction with wallet...");
   const userSignedTx = await solanaWallet.signTransaction(transaction);
-
-  console.log("Transaction AFTER wallet signing:", {
-    instructionCount: userSignedTx.message.compiledInstructions.length,
-    serializedLength: userSignedTx.serialize().length,
-    signaturesCount: userSignedTx.signatures.length,
-  });
 
   // The facilitator expects exactly the transaction structure we built
   // AND it expects ComputeBudget instructions in positions 0 and 1
   // The wallet signing process is correct - we just need to use the signed transaction as-is
-
-  console.log("Using wallet-signed transaction directly for facilitator");
-  console.log("Final transaction structure:", {
-    instructionCount: userSignedTx.message.compiledInstructions.length,
-    accountKeysLength: userSignedTx.message.staticAccountKeys.length,
-    signaturesCount: userSignedTx.signatures.length,
-    serializedLength: userSignedTx.serialize().length,
-  });
-
-  // Log each instruction in the final transaction for debugging
-  userSignedTx.message.compiledInstructions.forEach(
-    (instruction: MessageCompiledInstruction, index: number) => {
-      const programId =
-        userSignedTx.message.staticAccountKeys[instruction.programIdIndex];
-      console.log(`Final instruction ${index}:`, {
-        programIdIndex: instruction.programIdIndex,
-        programId: programId.toString(),
-        accountsLength: instruction.accountKeyIndexes.length,
-        dataLength: instruction.data.length,
-        data: Array.from(instruction.data.slice(0, 4)), // Show first 4 bytes (discriminator)
-      });
-    }
-  );
 
   return createPaymentHeaderFromTransaction(
     userSignedTx,
@@ -636,8 +516,6 @@ export function usePaidRequest() {
           (wallet.address && wallet.address.length > 30) // Solana addresses are typically 32-44 chars
       );
 
-      console.log("Found Solana wallet:", solanaWallet);
-
       if (!solanaWallet) {
         console.error("No Solana wallet found. Available wallets:", wallets);
         throw new Error(
@@ -653,7 +531,6 @@ export function usePaidRequest() {
           BigInt(10000000) // 10 USDC max allowed for safety
         );
 
-        console.log("Making request with custom x402 payment interceptor...");
         return await paymentFetch(url, {
           ...options,
           headers: {

@@ -146,7 +146,6 @@ export function Dashboard({
         ...(currentThreadId && { threadId: currentThreadId }),
       };
 
-      console.log("Making x402 payment request to /api/chat...");
       const response = await makePaymentRequest("/api/chat", {
         method: "POST",
         headers: {
@@ -160,7 +159,6 @@ export function Dashboard({
       }
 
       const result = await response.json();
-      console.log("x402 API response:", result);
 
       // Handle the response based on whether it's a new thread or continuation
       let aiResponseText: string;
