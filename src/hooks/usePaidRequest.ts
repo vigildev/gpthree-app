@@ -346,8 +346,11 @@ async function createCustomSolanaPaymentHeader(
 
   // Build sponsored transaction with fee payer = facilitator
   const isMainnet = paymentRequirements.network === "solana";
+
+  // "https://api.mainnet-beta.solana.com"
+
   const rpcUrl = isMainnet
-    ? "https://api.mainnet-beta.solana.com"
+    ? process.env.SOLANA_RPC_URL_MAINNET!
     : "https://api.devnet.solana.com";
 
   const connection = new Connection(rpcUrl, "confirmed");
