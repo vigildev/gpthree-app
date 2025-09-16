@@ -1,12 +1,13 @@
 "use client";
 
-import { usePrivy } from '@privy-io/react-auth';
-import { useSolanaWallets } from '@privy-io/react-auth/solana';
-import { Button } from '@/components/ui/button';
+import { usePrivy } from "@privy-io/react-auth";
+import { useConnectedStandardWallets } from "@privy-io/react-auth/solana";
+import { Button } from "@/components/ui/button";
 
 export function WalletDebug() {
-  const { ready, authenticated, user, login, logout, createWallet } = usePrivy();
-  const { wallets: solanaWallets } = useSolanaWallets();
+  const { ready, authenticated, user, login, logout, createWallet } =
+    usePrivy();
+  const { wallets: solanaWallets } = useConnectedStandardWallets();
 
   if (!ready) {
     return <div>Loading...</div>;
@@ -15,17 +16,21 @@ export function WalletDebug() {
   return (
     <div className="p-4 border rounded-lg bg-card text-card-foreground">
       <h3 className="text-lg font-semibold mb-4">Wallet Debug Info</h3>
-      
+
       <div className="space-y-2 mb-4">
-        <p><strong>Authenticated:</strong> {authenticated ? 'Yes' : 'No'}</p>
-        <p><strong>User ID:</strong> {user?.id || 'None'}</p>
-        <p><strong>Solana Wallets Count:</strong> {solanaWallets.length}</p>
+        <p>
+          <strong>Authenticated:</strong> {authenticated ? "Yes" : "No"}
+        </p>
+        <p>
+          <strong>User ID:</strong> {user?.id || "None"}
+        </p>
+        <p>
+          <strong>Solana Wallets Count:</strong> {solanaWallets.length}
+        </p>
       </div>
 
       <div className="space-x-2 mb-4">
-        {!authenticated && (
-          <Button onClick={login}>Login</Button>
-        )}
+        {!authenticated && <Button onClick={login}>Login</Button>}
         {authenticated && (
           <>
             <Button onClick={logout}>Logout</Button>
@@ -40,11 +45,18 @@ export function WalletDebug() {
           <div className="space-y-2">
             {solanaWallets.map((wallet, index) => (
               <div key={index} className="p-2 bg-muted rounded text-sm">
-                <p><strong>Type:</strong> {wallet.walletClientType}</p>
-                <p><strong>Address:</strong> {wallet.address}</p>
-                {wallet.meta && (
-                  <p><strong>Meta:</strong> {JSON.stringify(wallet.meta)}</p>
-                )}
+                <p>
+                  <strong>Type:</strong> {wallet.standardWallet.name}
+                </p>
+                <p>
+                  <strong>Address:</strong> {wallet.address}
+                </p>
+                <div>
+                  <strong>Wallet Info:</strong>
+                  <pre className="text-xs">
+                    {JSON.stringify(wallet, null, 2)}
+                  </pre>
+                </div>
               </div>
             ))}
           </div>

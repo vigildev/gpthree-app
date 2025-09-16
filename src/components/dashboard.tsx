@@ -12,6 +12,7 @@ import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 import { PaymentTest } from "@/components/payment-test";
+import { WalletDebug } from "./wallet-debug";
 
 interface DashboardProps {
   threadId?: string;
@@ -226,6 +227,8 @@ export function Dashboard({
 
       {/* Privacy Banner */}
       <PrivacyBanner />
+
+      <WalletDebug />
 
       {/* x402 Payment Test - Development Only */}
       {/* <div className="mb-8">

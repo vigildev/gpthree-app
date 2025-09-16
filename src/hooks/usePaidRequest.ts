@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useSolanaWallets } from "@privy-io/react-auth/solana";
+import { useConnectedStandardWallets } from "@privy-io/react-auth/solana";
 import { type PaymentRequirements } from "../lib/x402-solana-types";
 import { env } from "@/env.mjs";
 import {
@@ -495,7 +495,7 @@ async function createCustomSolanaPaymentHeader(
 
 export function usePaidRequest() {
   const { user, authenticated } = usePrivy();
-  const { wallets } = useSolanaWallets();
+  const { wallets } = useConnectedStandardWallets();
 
   const makePaymentRequest = useCallback(
     async (url: string, options: RequestInit = {}): Promise<Response> => {
@@ -503,18 +503,8 @@ export function usePaidRequest() {
         throw new Error("User must be authenticated to make paid requests");
       }
 
-      // Find user's Solana wallet
-      const solanaWallet = wallets.find(
-        (wallet) =>
-          wallet.walletClientType === "phantom" ||
-          wallet.walletClientType === "solflare" ||
-          wallet.walletClientType === "backpack" ||
-          wallet.walletClientType === "privy" || // Privy embedded wallet
-          (wallet.meta &&
-            wallet.meta.name &&
-            wallet.meta.name.toLowerCase().includes("solana")) ||
-          (wallet.address && wallet.address.length > 30) // Solana addresses are typically 32-44 chars
-      );
+      // Find user's Solana wallet (wallets are already filtered to Solana)
+      const solanaWallet = wallets[0]; // Just use the first available Solana wallet
 
       if (!solanaWallet) {
         console.error("No Solana wallet found. Available wallets:", wallets);
