@@ -1,13 +1,13 @@
 "use client";
 
 import { usePrivy } from "@privy-io/react-auth";
-import { useConnectedStandardWallets } from "@privy-io/react-auth/solana";
+import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { Button } from "@/components/ui/button";
 
 export function WalletDebug() {
   const { ready, authenticated, user, login, logout, createWallet } =
     usePrivy();
-  const { wallets: solanaWallets } = useConnectedStandardWallets();
+  const { wallets: solanaWallets } = useSolanaWallets();
 
   if (!ready) {
     return <div>Loading...</div>;
@@ -46,7 +46,7 @@ export function WalletDebug() {
             {solanaWallets.map((wallet, index) => (
               <div key={index} className="p-2 bg-muted rounded text-sm">
                 <p>
-                  <strong>Type:</strong> {wallet.standardWallet.name}
+                  <strong>Type:</strong> {wallet.walletClientType}
                 </p>
                 <p>
                   <strong>Address:</strong> {wallet.address}

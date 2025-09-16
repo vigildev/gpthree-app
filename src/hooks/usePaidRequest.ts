@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useConnectedStandardWallets } from "@privy-io/react-auth/solana";
+import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { type PaymentRequirements } from "../lib/x402-solana-types";
 import { env } from "@/env.mjs";
 import {
@@ -495,7 +495,7 @@ async function createCustomSolanaPaymentHeader(
 
 export function usePaidRequest() {
   const { user, authenticated } = usePrivy();
-  const { wallets } = useConnectedStandardWallets();
+  const { wallets } = useSolanaWallets();
 
   const makePaymentRequest = useCallback(
     async (url: string, options: RequestInit = {}): Promise<Response> => {
