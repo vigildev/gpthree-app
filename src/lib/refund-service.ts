@@ -107,7 +107,8 @@ export class RefundService {
     console.log(`🏗️ Building refund transaction:`);
     console.log(`   From: ${treasuryPubkey.toBase58()}`);
     console.log(`   To: ${userPubkey.toBase58()}`);
-    console.log(`   Amount: ${refundAmount} USDC micro-units`);
+    console.log(`   Amount: ${refundAmount} USDC micro-units (raw)`);
+    console.log(`   Amount: ${Math.floor(refundAmount)} USDC micro-units (integer for BigInt)`);
     
     // Determine which token program to use
     const mintInfo = await this.connection.getAccountInfo(this.usdcMint, 'confirmed');
@@ -150,15 +151,17 @@ export class RefundService {
     }
     
     // Create transfer instruction
+    // Ensure refundAmount is an integer for BigInt conversion
+    const refundAmountInteger = Math.floor(refundAmount);
     const transferInstruction = createTransferCheckedInstruction(
-      treasuryAta,           // source
-      this.usdcMint,         // mint
-      userAta,               // destination
-      treasuryPubkey,        // owner (treasury)
-      BigInt(refundAmount),  // amount in micro-units
-      mint.decimals,         // decimals (should be 6 for USDC)
-      [],                    // multiSigners (none)
-      programId              // program ID
+      treasuryAta,                    // source
+      this.usdcMint,                  // mint
+      userAta,                        // destination
+      treasuryPubkey,                 // owner (treasury)
+      BigInt(refundAmountInteger),    // amount in micro-units (must be integer)
+      mint.decimals,                  // decimals (should be 6 for USDC)
+      [],                             // multiSigners (none)
+      programId                       // program ID
     );
     
     // Build transaction
