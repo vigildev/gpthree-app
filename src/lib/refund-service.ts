@@ -7,7 +7,6 @@ import {
   TOKEN_2022_PROGRAM_ID,
   getMint
 } from '@solana/spl-token';
-import { env } from '../env.mjs';
 
 export interface RefundResult {
   success: boolean;
@@ -23,12 +22,12 @@ export class RefundService {
 
   constructor() {
     this.privy = new PrivyClient(
-      env.NEXT_PUBLIC_PRIVY_APP_ID,
-      env.PRIVY_APP_SECRET
+      process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
+      process.env.PRIVY_APP_SECRET!
     );
     
     // Treasury wallet ID (set after importing wallet via script)
-    this.treasuryWalletId = env.TREASURY_WALLET_ID || '';
+    this.treasuryWalletId = process.env.TREASURY_WALLET_ID || '';
     
     // USDC mint address
     this.usdcMint = new PublicKey(process.env.ASSET || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -36,8 +35,8 @@ export class RefundService {
     // Solana connection for building transactions
     const network = process.env.NETWORK || 'solana-devnet';
     const rpcUrl = network === 'solana' 
-      ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET || 'https://api.mainnet-beta.solana.com'
-      : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || 'https://api.devnet.solana.com';
+      ? process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET || 'https://api.mainnet-beta.solana.com'
+      : process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || 'https://api.devnet.solana.com';
     
     this.connection = new Connection(rpcUrl, 'confirmed');
   }
@@ -103,7 +102,7 @@ export class RefundService {
    */
   private async buildRefundTransaction(userAddress: string, refundAmount: number): Promise<Transaction> {
     const userPubkey = new PublicKey(userAddress);
-    const treasuryPubkey = new PublicKey(env.TREASURY_WALLET_ADDRESS);
+    const treasuryPubkey = new PublicKey(process.env.TREASURY_WALLET_ADDRESS!);
     
     console.log(`🏗️ Building refund transaction:`);
     console.log(`   From: ${treasuryPubkey.toBase58()}`);
@@ -166,10 +165,12 @@ export class RefundService {
     const transaction = new Transaction();
     transaction.add(transferInstruction);
     
-    // Set recent blockhash (Privy will handle this, but good practice)
-    const { blockhash } = await this.connection.getLatestBlockhash('confirmed');
-    transaction.recentBlockhash = blockhash;
+    // Set fee payer (required for transaction)
     transaction.feePayer = treasuryPubkey;
+    
+    // Get fresh blockhash right before sending
+    const { blockhash } = await this.connection.getLatestBlockhash('finalized');
+    transaction.recentBlockhash = blockhash;
     
     return transaction;
   }
