@@ -319,7 +319,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Parse request body
     const body = await request.json();
-    const { prompt, model, threadId, userId, systemEnhancement, userWalletAddress } = body;
+    const {
+      prompt,
+      model,
+      threadId,
+      userId,
+      systemEnhancement,
+      userWalletAddress,
+    } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -348,6 +355,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Settle payment with facilitator before processing refunds
+    const paymentSettled = await settlePayment(paymentHeader);
+    if (!paymentSettled) {
+      return NextResponse.json(
+        { error: "Payment settlement failed" },
+        { status: 402 }
+      );
+    }
+
     // Extract usage information from the result
     const usageData = (result as any).usage || null;
     console.log("Raw result from Convex:", result);
@@ -359,11 +375,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
 
       if (refundAmount > 0) {
-        console.log(`Processing refund of ${refundAmount} USDC micro-units to ${userWalletAddress}`);
+        console.log(
+          `Processing refund of ${refundAmount} USDC micro-units to ${userWalletAddress}`
+        );
 
-        // Execute refund using RefundService
+        // Execute refund using RefundService - userWalletAddress comes from request body
         if (!userWalletAddress) {
-          console.error('❌ No user wallet address provided for refund');
+          console.error("❌ No user wallet address provided for refund");
         } else {
           const refundService = new RefundService();
           try {
@@ -371,39 +389,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               userWalletAddress,
               refundAmount
             );
-            
+
             if (refundResult.success) {
-              console.log(`✅ Refund successful: ${refundResult.transactionHash}`);
-              
+              console.log(
+                `✅ Refund successful: ${refundResult.transactionHash}`
+              );
+
               // Optional: Store refund record for audit trail
               // TODO: Add Convex mutation to track successful refunds
-              
             } else {
               console.error(`❌ Refund failed: ${refundResult.error}`);
-              
+
               // Optional: Store failed refund for manual processing
               // TODO: Add Convex mutation to track failed refunds
             }
-            
           } catch (refundError) {
-            console.error('❌ Refund service error:', refundError);
-            
+            console.error("❌ Refund service error:", refundError);
+
             // Don't fail the entire request if refund fails
             // User got their AI response, refund can be processed manually if needed
           }
         }
+
+        // Handle case where no wallet address was provided
+        if (!userWalletAddress) {
+          console.log(
+            "❌ Cannot process refund: no user wallet address provided"
+          );
+          console.log("💡 Refund will need to be processed manually:");
+          console.log(
+            `   - Amount: ${refundAmount} USDC micro-units ($${RefundService.microUsdcToUsd(
+              refundAmount
+            ).toFixed(6)})`
+          );
+          console.log(`   - User ID: ${userId}`);
+          console.log("   - Consider storing this for manual processing");
+
+          // TODO: Store failed refund attempt in database for manual processing
+        }
       }
     } else {
       console.log("No usage data available for refund calculation");
-    }
-
-    // settle payment with facilitator
-    const paymentSettled = await settlePayment(paymentHeader);
-    if (!paymentSettled) {
-      return NextResponse.json(
-        { error: "Payment settlement failed" },
-        { status: 402 }
-      );
     }
 
     // Return the AI response in the expected format
