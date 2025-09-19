@@ -4,21 +4,38 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { usePrivy } from "@privy-io/react-auth";
+import { useSolanaWallets } from "@privy-io/react-auth/solana";
 
 export function PaymentTest() {
   const { makePaymentRequest } = usePaidRequest();
-  const { authenticated } = usePrivy();
+  const { authenticated, user } = usePrivy();
+  const { wallets } = useSolanaWallets();
   const [result, setResult] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
 
   const testPayment = async () => {
-    if (!authenticated) {
+    if (!authenticated || !user) {
       setResult("Please authenticate first");
       return;
     }
 
+    // Find user's Solana wallet
+    const solanaWallet = wallets.find(
+      (wallet) =>
+        wallet.walletClientType === "phantom" ||
+        wallet.walletClientType === "solflare" ||
+        wallet.walletClientType === "backpack" ||
+        wallet.walletClientType === "privy" ||
+        (wallet.address && wallet.address.length > 30)
+    );
+
+    if (!solanaWallet?.address) {
+      setResult("❌ No Solana wallet found. Please connect a Solana wallet.");
+      return;
+    }
+
     setIsLoading(true);
-    setResult("Testing x402 payment handshake...");
+    setResult("Testing x402 payment handshake with refund support...");
 
     try {
       // Make a request to the chat API which requires payment
@@ -28,9 +45,10 @@ export function PaymentTest() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: "Hello, this is a test of the x402 payment system.",
+          prompt: "Hello, this is a test of the x402 payment system with automatic refunds.",
           model: "anthropic/claude-3.5-sonnet",
-          userId: "test-user",
+          userId: user.id,
+          userWalletAddress: solanaWallet.address, // Add wallet address for refunds
         }),
       });
 
@@ -80,10 +98,11 @@ export function PaymentTest() {
         <div className="text-sm text-muted-foreground">
           <p><strong>Test Details:</strong></p>
           <ul className="list-disc ml-4 mt-2 space-y-1">
-            <li>Network: Solana Devnet</li>
-            <li>Amount: 0.0125 SOL (~$2.50)</li>
+            <li>Network: Solana {process.env.NETWORK === 'solana' ? 'Mainnet' : 'Devnet'}</li>
+            <li>Payment: $2.50 USDC upfront</li>
+            <li>AI Usage: Calculated after response</li>
+            <li>Refund: Automatic refund of unused amount</li>
             <li>Facilitator: payai.network</li>
-            <li>Recipient: F4gs9FXU7HiKW8aamnY2taP7ciE5i4tBwuLwaeYD44bw</li>
           </ul>
         </div>
       </div>
