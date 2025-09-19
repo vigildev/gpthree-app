@@ -14,6 +14,17 @@ export default function Home() {
   const handleThreadSelect = (threadId: string) => {
     setCurrentThreadId(threadId);
   };
+  
+  const handleThreadChange = (threadId: string | undefined) => {
+    setCurrentThreadId(threadId);
+  };
+
+  const handleThreadDeleted = (deletedThreadId: string) => {
+    // If the deleted thread is currently active, clear the selection
+    if (currentThreadId === deletedThreadId) {
+      setCurrentThreadId(undefined);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -21,13 +32,14 @@ export default function Home() {
         <Sidebar
           currentThreadId={currentThreadId}
           onThreadSelect={handleThreadSelect}
+          onThreadDeleted={handleThreadDeleted}
         />
       )}
       <main className="flex-1 overflow-auto">
         {ready && authenticated ? (
           <Dashboard
             threadId={currentThreadId}
-            onThreadChange={setCurrentThreadId}
+            onThreadChange={handleThreadChange}
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-start pt-24 gap-8">

@@ -18,7 +18,7 @@ import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 
 interface DashboardProps {
   threadId?: string;
-  onThreadChange?: (threadId: string) => void;
+  onThreadChange?: (threadId: string | undefined) => void;
 }
 
 export function Dashboard({
@@ -53,11 +53,23 @@ export function Dashboard({
     api.agents.listThreadMessages,
     currentThreadId ? { threadId: currentThreadId } : "skip"
   );
+  
+  // Handle case where thread was deleted - messages will be undefined
+  // This prevents UI errors when querying a deleted thread
+  const isThreadDeleted = currentThreadId && messages === undefined;
 
   // Clear local chat messages when thread changes
   useEffect(() => {
     setChatMessages([]);
   }, [currentThreadId]);
+  
+  // Handle deleted thread - clear the current thread if it was deleted
+  useEffect(() => {
+    if (isThreadDeleted) {
+      console.warn(`Thread ${currentThreadId} appears to have been deleted, clearing selection`);
+      onThreadChange?.(undefined); // Clear the thread selection
+    }
+  }, [isThreadDeleted, currentThreadId, onThreadChange]);
 
   if (!ready) {
     return (
