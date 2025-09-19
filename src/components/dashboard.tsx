@@ -8,6 +8,7 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
@@ -25,6 +26,7 @@ export function Dashboard({
   onThreadChange,
 }: DashboardProps) {
   const { ready, authenticated, user } = usePrivy();
+  const { wallets } = useSolanaWallets();
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(
@@ -139,6 +141,16 @@ export function Dashboard({
     setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
+      // Find user's Solana wallet for refunds
+      const solanaWallet = wallets.find(
+        (wallet) =>
+          wallet.walletClientType === "phantom" ||
+          wallet.walletClientType === "solflare" ||
+          wallet.walletClientType === "backpack" ||
+          wallet.walletClientType === "privy" ||
+          (wallet.address && wallet.address.length > 30)
+      );
+
       // Use x402 payment system via API route instead of direct Convex calls
       const requestBody = {
         prompt: userMessage,
@@ -146,6 +158,7 @@ export function Dashboard({
         userId: user.id,
         systemEnhancement: selectedQuickAction?.systemEnhancement,
         ...(currentThreadId && { threadId: currentThreadId }),
+        ...(solanaWallet?.address && { userWalletAddress: solanaWallet.address }),
       };
 
       const response = await makePaymentRequest("/api/chat", {
