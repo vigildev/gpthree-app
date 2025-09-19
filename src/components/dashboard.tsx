@@ -54,14 +54,15 @@ export function Dashboard({
     currentThreadId ? { threadId: currentThreadId } : "skip"
   );
   
-  // Handle case where thread was deleted - messages will be undefined
-  // This prevents UI errors when querying a deleted thread
-  const isThreadDeleted = currentThreadId && messages === undefined;
+  // Handle case where thread was deleted - messages will be null/undefined after loading
+  // Only consider a thread deleted if we have a threadId but query explicitly returns null
+  const isThreadDeleted = currentThreadId && messages === null;
 
   // Clear local chat messages when thread changes
   useEffect(() => {
     setChatMessages([]);
   }, [currentThreadId]);
+  
   
   // Handle deleted thread - clear the current thread if it was deleted
   useEffect(() => {
@@ -88,7 +89,7 @@ export function Dashboard({
   }
 
   // Convert messages to UI format and ensure proper ordering (newest at bottom)
-  const persistedMessages = messages
+  const persistedMessages = (messages && Array.isArray(messages) && messages.length > 0)
     ? messages
         .sort(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -96,8 +97,6 @@ export function Dashboard({
         ) // Sort by creation time
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((msg: any, index: number) => {
-          // Debug: Log the message structure to understand the author field
-          // console.log("Message structure:", msg);
 
           // Role detection based on actual Convex Agent structure
           const isUserMessage =
@@ -130,11 +129,11 @@ export function Dashboard({
         })
     : [];
 
-  // Use persisted messages if available, otherwise use local state
-  const displayMessages =
-    currentThreadId && persistedMessages.length > 0
-      ? persistedMessages
-      : chatMessages;
+  // Use persisted messages if a thread is selected, otherwise use local state
+  const displayMessages = currentThreadId 
+    ? persistedMessages // Show thread messages (even if empty)
+    : chatMessages;     // Show local messages when no thread selected
+
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading || !user) return;

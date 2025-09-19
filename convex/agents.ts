@@ -250,9 +250,9 @@ export const listThreadMessages = query({
         },
       });
 
-      return messages.page;
+      return messages.page || [];
     } catch (error) {
-      console.log("Failed to fetch messages:", error);
+      console.error('Failed to fetch messages for thread:', threadId, error);
       return [];
     }
   },
