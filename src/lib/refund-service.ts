@@ -28,7 +28,7 @@ export class RefundService {
     );
     
     // Treasury wallet ID (set after importing wallet via script)
-    this.treasuryWalletId = process.env.TREASURY_WALLET_ID!;
+    this.treasuryWalletId = env.TREASURY_WALLET_ID || '';
     
     // USDC mint address
     this.usdcMint = new PublicKey(process.env.ASSET || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
@@ -103,7 +103,7 @@ export class RefundService {
    */
   private async buildRefundTransaction(userAddress: string, refundAmount: number): Promise<Transaction> {
     const userPubkey = new PublicKey(userAddress);
-    const treasuryPubkey = new PublicKey(process.env.TREASURY_WALLET_ADDRESS!);
+    const treasuryPubkey = new PublicKey(env.TREASURY_WALLET_ADDRESS);
     
     console.log(`🏗️ Building refund transaction:`);
     console.log(`   From: ${treasuryPubkey.toBase58()}`);

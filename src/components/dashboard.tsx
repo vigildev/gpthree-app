@@ -231,9 +231,9 @@ export function Dashboard({
       <WalletDebug />
 
       {/* x402 Payment Test - Development Only */}
-      {/* <div className="mb-8">
+      <div className="mb-8">
         <PaymentTest />
-      </div> */}
+      </div>
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
