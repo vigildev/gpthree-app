@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
+import { RefundService } from "../../../lib/refund-service";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -318,7 +319,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Parse request body
     const body = await request.json();
-    const { prompt, model, threadId, userId, systemEnhancement } = body;
+    const { prompt, model, threadId, userId, systemEnhancement, userWalletAddress } = body;
 
     if (!userId) {
       return NextResponse.json(
@@ -358,17 +359,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
 
       if (refundAmount > 0) {
-        console.log(`Processing refund of ${refundAmount} USDC`);
+        console.log(`Processing refund of ${refundAmount} USDC micro-units to ${userWalletAddress}`);
 
-        // TODO: Implement async refund processing
-        // This would involve:
-        // 1. Getting user's wallet address from payment header
-        // 2. Creating a USDC transfer transaction
-        // 3. Executing the refund transfer
-        // 4. Logging the transaction for audit
-
-        // For now, just log the intended refund
-        console.log(`Refund queued: ${refundAmount} USDC to user`);
+        // Execute refund using RefundService
+        if (!userWalletAddress) {
+          console.error('❌ No user wallet address provided for refund');
+        } else {
+          const refundService = new RefundService();
+          try {
+            const refundResult = await refundService.executeRefund(
+              userWalletAddress,
+              refundAmount
+            );
+            
+            if (refundResult.success) {
+              console.log(`✅ Refund successful: ${refundResult.transactionHash}`);
+              
+              // Optional: Store refund record for audit trail
+              // TODO: Add Convex mutation to track successful refunds
+              
+            } else {
+              console.error(`❌ Refund failed: ${refundResult.error}`);
+              
+              // Optional: Store failed refund for manual processing
+              // TODO: Add Convex mutation to track failed refunds
+            }
+            
+          } catch (refundError) {
+            console.error('❌ Refund service error:', refundError);
+            
+            // Don't fail the entire request if refund fails
+            // User got their AI response, refund can be processed manually if needed
+          }
+        }
       }
     } else {
       console.log("No usage data available for refund calculation");
