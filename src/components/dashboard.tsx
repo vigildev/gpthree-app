@@ -11,8 +11,9 @@ import { usePrivy } from "@privy-io/react-auth";
 import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
-import { PaymentTest } from "@/components/payment-test";
-import { WalletDebug } from "./wallet-debug";
+// Debug components - imports commented out
+// import { PaymentTest } from "@/components/payment-test";
+// import { WalletDebug } from "./wallet-debug";
 
 interface DashboardProps {
   threadId?: string;
@@ -228,12 +229,13 @@ export function Dashboard({
       {/* Privacy Banner */}
       <PrivacyBanner />
 
-      <WalletDebug />
+      {/* Debug components - commented out for production */}
+      {/* <WalletDebug /> */}
 
       {/* x402 Payment Test - Development Only */}
-      <div className="mb-8">
+      {/* <div className="mb-8">
         <PaymentTest />
-      </div>
+      </div> */}
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
