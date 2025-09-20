@@ -3,6 +3,12 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
 import { RefundService } from "../../../lib/refund-service";
 
+interface PaymentInfo {
+  actualCost: number;
+  refundAmount: number;
+  transactionHash?: string;
+}
+
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // x402 Payment configuration with fixed upfront amount
@@ -368,11 +374,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const usageData = (result as any).usage || null;
     console.log("Raw result from Convex:", result);
 
+    let paymentInfo: PaymentInfo | null = null;
+
     if (usageData && usageData.cost) {
       console.log("OpenRouter usage data:", usageData);
 
       // Calculate refund amount using the full usage object
       const refundAmount = calculateRefund(usageData, PAYMENT_CONFIG.amount);
+
+      // Calculate actual cost paid (initial payment - refund)
+      const actualCostPaid = PAYMENT_CONFIG.amount - refundAmount;
+
+      // Store payment info to return with response
+      paymentInfo = {
+        actualCost: actualCostPaid / 1000000, // Convert to USD
+        refundAmount: refundAmount / 1000000, // Convert to USD
+      };
 
       if (refundAmount > 0) {
         console.log(
@@ -394,6 +411,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               console.log(
                 `✅ Refund successful: ${refundResult.transactionHash}`
               );
+
+              // Add transaction hash to payment info
+              if (paymentInfo) {
+                paymentInfo.transactionHash = refundResult.transactionHash;
+              }
 
               // Optional: Store refund record for audit trail
               // TODO: Add Convex mutation to track successful refunds
@@ -432,16 +454,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log("No usage data available for refund calculation");
     }
 
-    // Return the AI response in the expected format
+    // Return the AI response in the expected format with payment info
     // For continueThread, we need to normalize the response format
     if (threadId && result && typeof result === "object" && "text" in result) {
-      // continueThread now returns { text, usage }, but frontend expects just the text
-      // So we return the text, but we already processed the usage for refund
-      return NextResponse.json(result.text);
+      // continueThread now returns { text, usage }, return with payment info
+      return NextResponse.json({
+        text: result.text,
+        paymentInfo,
+      });
     }
 
-    // For createThread, return as-is (already has correct format)
-    return NextResponse.json(result);
+    // For createThread, include payment info with existing format
+    return NextResponse.json({
+      ...result,
+      paymentInfo,
+    });
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(

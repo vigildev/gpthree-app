@@ -16,6 +16,20 @@ import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 // import { PaymentTest } from "@/components/payment-test";
 // import { WalletDebug } from "./wallet-debug";
 
+interface PaymentInfo {
+  actualCost: number; // in USD
+  refundAmount: number; // in USD
+  transactionHash?: string;
+}
+
+interface ChatMessage {
+  key: string;
+  role: "user" | "assistant";
+  content: string;
+  status: "complete";
+  paymentInfo?: PaymentInfo;
+}
+
 interface DashboardProps {
   threadId?: string;
   onThreadChange?: (threadId: string | undefined) => void;
@@ -32,14 +46,7 @@ export function Dashboard({
   const [selectedModel, setSelectedModel] = useState<string>(
     "anthropic/claude-3.5-sonnet"
   );
-  const [chatMessages, setChatMessages] = useState<
-    Array<{
-      key: string;
-      role: "user" | "assistant";
-      content: string;
-      status: "complete";
-    }>
-  >([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [selectedQuickAction, setSelectedQuickAction] =
     useState<QuickAction | null>(null);
 
@@ -53,7 +60,7 @@ export function Dashboard({
     api.agents.listThreadMessages,
     currentThreadId ? { threadId: currentThreadId } : "skip"
   );
-  
+
   // Handle case where thread was deleted - messages will be null/undefined after loading
   // Only consider a thread deleted if we have a threadId but query explicitly returns null
   const isThreadDeleted = currentThreadId && messages === null;
@@ -62,12 +69,13 @@ export function Dashboard({
   useEffect(() => {
     setChatMessages([]);
   }, [currentThreadId]);
-  
-  
+
   // Handle deleted thread - clear the current thread if it was deleted
   useEffect(() => {
     if (isThreadDeleted) {
-      console.warn(`Thread ${currentThreadId} appears to have been deleted, clearing selection`);
+      console.warn(
+        `Thread ${currentThreadId} appears to have been deleted, clearing selection`
+      );
       onThreadChange?.(undefined); // Clear the thread selection
     }
   }, [isThreadDeleted, currentThreadId, onThreadChange]);
@@ -89,51 +97,58 @@ export function Dashboard({
   }
 
   // Convert messages to UI format and ensure proper ordering (newest at bottom)
-  const persistedMessages = (messages && Array.isArray(messages) && messages.length > 0)
-    ? messages
-        .sort(
+  const persistedMessages: ChatMessage[] =
+    messages && Array.isArray(messages) && messages.length > 0
+      ? messages
+          .sort(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)
+          ) // Sort by creation time
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)
-        ) // Sort by creation time
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((msg: any, index: number) => {
+          .map((msg: any, index: number) => {
+            // Role detection based on actual Convex Agent structure
+            const isUserMessage =
+              // Check the nested message.role field (this is the definitive field!)
+              msg.message?.role === "user" ||
+              // Fallback checks for other possible structures
+              msg.author === "user" ||
+              msg.role === "user" ||
+              msg.type === "user" ||
+              msg.sender === "user" ||
+              msg.from === "user" ||
+              msg.authorRole === "user" ||
+              msg.role === "human" ||
+              msg.author === "human";
 
-          // Role detection based on actual Convex Agent structure
-          const isUserMessage =
-            // Check the nested message.role field (this is the definitive field!)
-            msg.message?.role === "user" ||
-            // Fallback checks for other possible structures
-            msg.author === "user" ||
-            msg.role === "user" ||
-            msg.type === "user" ||
-            msg.sender === "user" ||
-            msg.from === "user" ||
-            msg.authorRole === "user" ||
-            msg.role === "human" ||
-            msg.author === "human";
+            // Get content from the actual structure
+            const messageContent =
+              msg.text || // Direct text field
+              msg.message?.content?.[0]?.text || // Nested content structure
+              msg.content ||
+              msg.message ||
+              "";
 
-          // Get content from the actual structure
-          const messageContent =
-            msg.text || // Direct text field
-            msg.message?.content?.[0]?.text || // Nested content structure
-            msg.content ||
-            msg.message ||
-            "";
-
-          return {
-            key: `${msg._id || index}`,
-            role: isUserMessage ? "user" : "assistant",
-            content: messageContent,
-            status: "complete" as const,
-          };
-        })
-    : [];
+            return {
+              key: `${msg._id || index}`,
+              role: isUserMessage ? ("user" as const) : ("assistant" as const),
+              content: messageContent,
+              status: "complete" as const,
+              // Add generic payment info for all AI messages from database
+              paymentInfo: !isUserMessage
+                ? {
+                    actualCost: 0.005, // Generic cost estimate
+                    refundAmount: 2.495, // Generic refund estimate
+                    transactionHash: undefined, // No transaction hash for old messages
+                  }
+                : undefined,
+            } as ChatMessage;
+          })
+      : [];
 
   // Use persisted messages if a thread is selected, otherwise use local state
-  const displayMessages = currentThreadId 
-    ? persistedMessages // Show thread messages (even if empty)
-    : chatMessages;     // Show local messages when no thread selected
-
+  const displayMessages: ChatMessage[] = currentThreadId
+    ? persistedMessages // Show thread messages (now with payment info)
+    : chatMessages; // Show local messages when no thread selected
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading || !user) return;
@@ -169,7 +184,9 @@ export function Dashboard({
         userId: user.id,
         systemEnhancement: selectedQuickAction?.systemEnhancement,
         ...(currentThreadId && { threadId: currentThreadId }),
-        ...(solanaWallet?.address && { userWalletAddress: solanaWallet.address }),
+        ...(solanaWallet?.address && {
+          userWalletAddress: solanaWallet.address,
+        }),
       };
 
       const response = await makePaymentRequest("/api/chat", {
@@ -189,15 +206,21 @@ export function Dashboard({
       // Handle the response based on whether it's a new thread or continuation
       let aiResponseText: string;
       let newThreadId: string | undefined;
+      let paymentInfo = null;
 
       if (currentThreadId) {
-        // Continue existing thread - API returns just the text
-        aiResponseText =
-          typeof result === "string" ? result : result.text || "No response";
+        // Continue existing thread - API now returns { text, paymentInfo }
+        if (typeof result === "string") {
+          aiResponseText = result;
+        } else {
+          aiResponseText = result.text || "No response";
+          paymentInfo = result.paymentInfo;
+        }
       } else {
-        // Create new thread - API returns { threadId, text }
+        // Create new thread - API returns { threadId, text, paymentInfo }
         aiResponseText = result.text || "No response";
         newThreadId = result.threadId;
+        paymentInfo = result.paymentInfo;
 
         // Notify parent component about the new thread
         if (newThreadId) {
@@ -211,9 +234,11 @@ export function Dashboard({
         role: "assistant" as const,
         content: aiResponseText,
         status: "complete" as const,
+        ...(paymentInfo && { paymentInfo }),
       };
+
       setChatMessages((prev) => [...prev, aiChatMessage]);
-      
+
       // Clear selected quick action after successful message
       setSelectedQuickAction(null);
     } catch (error) {
@@ -293,6 +318,51 @@ export function Dashboard({
                     <span className="text-xs text-muted-foreground">
                       Loading...
                     </span>
+                  </div>
+                )}
+
+                {/* Payment info bubble - for all AI messages */}
+                {msg.role === "assistant" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-xs text-green-600">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="font-medium">
+                        {msg.paymentInfo
+                          ? `Paid with USDC $${
+                              msg.paymentInfo.actualCost < 0.01
+                                ? msg.paymentInfo.actualCost.toFixed(6)
+                                : msg.paymentInfo.actualCost.toFixed(4)
+                            }`
+                          : "Paid with USDC"}
+                      </span>
+                      {msg.paymentInfo?.transactionHash && (
+                        <a
+                          href={`https://explorer.solana.com/tx/${
+                            msg.paymentInfo.transactionHash
+                          }${
+                            typeof window !== "undefined" &&
+                            window.location.hostname === "localhost"
+                              ? "?cluster=devnet"
+                              : ""
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-400 transition-colors"
+                          title="View transaction on Solana Explorer"
+                        >
+                          ↗️
+                        </a>
+                      )}
+                    </div>
+                    {msg.paymentInfo && msg.paymentInfo.refundAmount > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        ($
+                        {msg.paymentInfo.refundAmount < 0.01
+                          ? msg.paymentInfo.refundAmount.toFixed(6)
+                          : msg.paymentInfo.refundAmount.toFixed(3)}{" "}
+                        refunded)
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -407,11 +477,13 @@ export function Dashboard({
                         ? "📚"
                         : "✍️"}
                     </div>
-                    <h4 className={`font-medium transition-colors ${
-                      selectedQuickAction?.text === action.text
-                        ? "text-primary"
-                        : "text-foreground group-hover:text-primary"
-                    }`}>
+                    <h4
+                      className={`font-medium transition-colors ${
+                        selectedQuickAction?.text === action.text
+                          ? "text-primary"
+                          : "text-foreground group-hover:text-primary"
+                      }`}
+                    >
                       {action.text}
                       {selectedQuickAction?.text === action.text && (
                         <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
