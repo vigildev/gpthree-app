@@ -36,9 +36,13 @@ export interface ZDRApiResponse {
     name: string; // Format: "Provider | model/id"
     model_name: string;
     context_length: number;
-    pricing: any;
+    pricing: {
+      prompt?: string;
+      completion?: string;
+      [key: string]: unknown;
+    };
     provider_name: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
 }
 

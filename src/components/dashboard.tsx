@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ModelSelector } from "@/components/model-selector";
 import { PrivacyBanner } from "@/components/privacy-banner";
 import { useState, useEffect } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { api } from "../../convex/_generated/api";
@@ -51,8 +51,6 @@ export function Dashboard({
     useState<QuickAction | null>(null);
 
   // All hooks must be at the top level
-  const createThread = useAction(api.agents.createThread);
-  const continueThread = useAction(api.agents.continueThread);
   const { makePaymentRequest } = usePaidRequest();
 
   // Use regular Convex query to get messages for the current thread

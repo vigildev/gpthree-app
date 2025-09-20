@@ -11,12 +11,9 @@ import {
   SystemProgram,
   ComputeBudgetProgram,
   TransactionInstruction,
-  MessageV0,
-  MessageCompiledInstruction,
 } from "@solana/web3.js";
 import {
   getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
   createTransferCheckedInstruction,
   getMint,
   TOKEN_PROGRAM_ID,
@@ -26,7 +23,7 @@ import {
 // Custom x402 payment interceptor based on the official PR implementation
 function createCustomPaymentFetch(
   fetchFn: typeof fetch,
-  solanaWallet: any,
+  solanaWallet: { signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>; address: string },
   maxValue: bigint = BigInt(0)
 ) {
   return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
@@ -84,213 +81,6 @@ function createCustomPaymentFetch(
   };
 }
 
-// Helper function to get RPC client - simplified for now
-function getRpcClient(network: string) {
-  // Use custom RPC URLs from environment if available, fallback to public RPCs
-  const rpcUrl =
-    network === "solana"
-      ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
-        "https://api.mainnet-beta.solana.com"
-      : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || "https://api.devnet.solana.com";
-
-  // For now, use a simple web3.js Connection for compatibility
-  // We'll replace this with proper Solana Kit RPC client later
-  const { Connection } = require("@solana/web3.js");
-  return new Connection(rpcUrl, "confirmed");
-}
-
-// Helper function to replace ComputeBudget instructions with no-ops to preserve instruction count
-function replaceComputeBudgetWithNoOps(
-  transaction: VersionedTransaction,
-  connection: Connection
-): VersionedTransaction | null {
-  try {
-    const message = transaction.message;
-    const accountKeys = message.staticAccountKeys;
-
-    // Find ComputeBudget program ID index
-    const computeBudgetProgramId = ComputeBudgetProgram.programId;
-    const computeBudgetProgramIndex = accountKeys.findIndex((key) =>
-      key.equals(computeBudgetProgramId)
-    );
-
-    if (computeBudgetProgramIndex === -1) {
-      // No ComputeBudget instructions found
-      return transaction;
-    }
-
-    // Find all ComputeBudget instructions and replace them with varied, realistic no-ops
-    let replacementCounter = 0;
-    const replacedInstructions = message.compiledInstructions.map(
-      (instruction) => {
-        if (instruction.programIdIndex === computeBudgetProgramIndex) {
-          replacementCounter++;
-          console.log(
-            `Replacing ComputeBudget instruction #${replacementCounter} with varied no-op`
-          );
-
-          // Strategy: Use varied, realistic-looking instructions to avoid pattern detection
-
-          // First, try to use memo program if available
-          let memoProgramIndex = accountKeys.findIndex((key) =>
-            key.equals(
-              new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr")
-            )
-          );
-
-          if (memoProgramIndex !== -1) {
-            // Use memo program with varied, realistic memo data
-            const memoTexts = ["tx", "ok", "gm", "test", "memo"];
-            const memoText = memoTexts[replacementCounter % memoTexts.length];
-
-            return {
-              programIdIndex: memoProgramIndex,
-              accountKeyIndexes: [], // Memo doesn't need accounts
-              data: new TextEncoder().encode(memoText), // Realistic memo
-            };
-          } else {
-            // Use system program with varied instruction types and realistic data
-            if (replacementCounter === 1) {
-              // First replacement: Create a minimal "nonce advance" style instruction
-              return {
-                programIdIndex: 0, // System Program
-                accountKeyIndexes: [0], // Fee payer account
-                data: new Uint8Array([4]), // AdvanceNonceAccount instruction (1 byte)
-              };
-            } else {
-              // Second replacement: Use "allocate" instruction with small allocation
-              return {
-                programIdIndex: 0, // System Program
-                accountKeyIndexes: [0], // Fee payer account
-                data: new Uint8Array([8, 0, 0, 0, 0, 0, 0, 0, 0]), // Allocate 0 bytes (9 bytes total)
-              };
-            }
-          }
-        }
-        return instruction;
-      }
-    );
-
-    // Check if any replacements were made
-    const replacementCount =
-      message.compiledInstructions.length -
-      replacedInstructions.filter(
-        (inst, idx) => inst === message.compiledInstructions[idx]
-      ).length;
-
-    if (replacementCount === 0) {
-      // No ComputeBudget instructions were replaced
-      return transaction;
-    }
-
-    console.log(
-      `Replaced ${replacementCount} ComputeBudget instructions with no-ops`
-    );
-
-    // Create a new MessageV0 with replaced instructions but preserve everything else
-    const newMessage = new MessageV0({
-      header: message.header,
-      staticAccountKeys: message.staticAccountKeys, // PRESERVE EXACT ACCOUNTS
-      recentBlockhash: message.recentBlockhash, // PRESERVE EXACT BLOCKHASH
-      compiledInstructions: replacedInstructions, // USE REPLACED INSTRUCTIONS
-      addressTableLookups: message.addressTableLookups,
-    });
-
-    // Create new transaction with replaced message but PRESERVE ALL SIGNATURES
-    const newTransaction = new VersionedTransaction(newMessage);
-    newTransaction.signatures = [...transaction.signatures];
-
-    console.log(
-      "ComputeBudget instructions replaced with no-ops, signature structure preserved"
-    );
-    return newTransaction;
-  } catch (error) {
-    console.error(
-      "Error replacing ComputeBudget instructions with no-ops:",
-      error
-    );
-    return null;
-  }
-}
-
-// Helper function to filter out ComputeBudget instructions that wallets add
-// This approach directly manipulates the message structure to preserve signatures
-function filterComputeBudgetInstructions(
-  transaction: VersionedTransaction,
-  connection: Connection
-): VersionedTransaction | null {
-  try {
-    const message = transaction.message;
-    const accountKeys = message.staticAccountKeys;
-
-    // Find ComputeBudget program ID index
-    const computeBudgetProgramId = ComputeBudgetProgram.programId;
-    const computeBudgetProgramIndex = accountKeys.findIndex((key) =>
-      key.equals(computeBudgetProgramId)
-    );
-
-    if (computeBudgetProgramIndex === -1) {
-      // No ComputeBudget instructions found
-      return transaction;
-    }
-
-    // Filter out instructions that use ComputeBudget program
-    const filteredInstructions = message.compiledInstructions.filter(
-      (instruction) => instruction.programIdIndex !== computeBudgetProgramIndex
-    );
-
-    if (filteredInstructions.length === message.compiledInstructions.length) {
-      // No ComputeBudget instructions were filtered out
-      return transaction;
-    }
-
-    console.log(
-      "Filtered out",
-      message.compiledInstructions.length - filteredInstructions.length,
-      "ComputeBudget instructions"
-    );
-
-    // CRITICAL: Create a new MessageV0 that preserves the EXACT account structure
-    // This is essential to maintain signature validity
-    const newMessage = new MessageV0({
-      header: message.header,
-      staticAccountKeys: message.staticAccountKeys, // PRESERVE EXACT ACCOUNTS
-      recentBlockhash: message.recentBlockhash, // PRESERVE EXACT BLOCKHASH
-      compiledInstructions: filteredInstructions, // ONLY FILTER INSTRUCTIONS
-      addressTableLookups: message.addressTableLookups,
-    });
-
-    // Create new transaction with filtered message but PRESERVE ALL SIGNATURES
-    const newTransaction = new VersionedTransaction(newMessage);
-    newTransaction.signatures = [...transaction.signatures];
-
-    console.log(
-      "Direct instruction filtering with preserved account structure"
-    );
-
-    // Debug: Compare original vs filtered transaction
-    console.log("Original transaction structure:", {
-      instructionCount: message.compiledInstructions.length,
-      accountKeysCount: accountKeys.length,
-      addressTableLookupsCount: message.addressTableLookups.length,
-      signaturesCount: transaction.signatures.length,
-      recentBlockhash: message.recentBlockhash,
-    });
-
-    console.log("Filtered transaction structure:", {
-      instructionCount: newMessage.compiledInstructions.length,
-      accountKeysCount: newMessage.staticAccountKeys.length,
-      addressTableLookupsCount: newMessage.addressTableLookups.length,
-      signaturesCount: newTransaction.signatures.length,
-      recentBlockhash: newMessage.recentBlockhash,
-    });
-
-    return newTransaction;
-  } catch (error) {
-    console.error("Error filtering ComputeBudget instructions:", error);
-    return null;
-  }
-}
 
 // Helper function to create payment header from transaction
 function createPaymentHeaderFromTransaction(
@@ -325,7 +115,7 @@ function createPaymentHeaderFromTransaction(
 
 // EXACT copy of the official PR's createAndSignPayment function, adapted for Privy
 async function createCustomSolanaPaymentHeader(
-  solanaWallet: any,
+  solanaWallet: { signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>; address: string },
   x402Version: number,
   paymentRequirements: PaymentRequirements
 ): Promise<string> {
@@ -342,7 +132,7 @@ async function createCustomSolanaPaymentHeader(
 
   const connection = new Connection(rpcUrl, "confirmed");
 
-  const feePayer = (paymentRequirements as any)?.extra?.feePayer;
+  const feePayer = (paymentRequirements as { extra?: { feePayer?: string } })?.extra?.feePayer;
   if (typeof feePayer !== "string" || !feePayer) {
     throw new Error(
       "Missing facilitator feePayer in payment requirements (extra.feePayer)."
@@ -359,7 +149,7 @@ async function createCustomSolanaPaymentHeader(
   }
   const destination = new PublicKey(paymentRequirements.payTo);
 
-  const instructions: any[] = [];
+  const instructions: TransactionInstruction[] = [];
 
   // The facilitator REQUIRES ComputeBudget instructions in positions 0 and 1
   // Position 0: setComputeUnitLimit (discriminator: 2)
@@ -392,9 +182,7 @@ async function createCustomSolanaPaymentHeader(
   // Fetch mint to get decimals
   const mint = await getMint(connection, mintPubkey, undefined, programId);
 
-  // Check token balance (simplified for now)
-  const requiredAmount =
-    Number(paymentRequirements.maxAmountRequired) / Math.pow(10, mint.decimals);
+  // Token amount calculation moved to usage point below
 
   // Derive source and destination ATAs
   const sourceAta = await getAssociatedTokenAddress(
