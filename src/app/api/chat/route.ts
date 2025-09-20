@@ -27,7 +27,15 @@ const SERVICE_FEE_PCT = 0.2; // 20% service fee
 const MIN_FEE_USD = 0.002; // $0.002 minimum fee
 
 // Calculate refund amount based on actual OpenRouter usage
-function calculateRefund(usageData: { cost?: number; prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null, paidUSD: number): number {
+function calculateRefund(
+  usageData: {
+    cost?: number;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  } | null,
+  paidUSD: number
+): number {
   if (!usageData || typeof usageData.cost !== "number") {
     console.log("Invalid or missing usage data, no refund calculated");
     return 0;
@@ -260,8 +268,11 @@ async function getFeePayerFromFacilitator(): Promise<string> {
 
     // Look for Solana devnet support and extract fee payer from kinds array
     const solanaSupport = supportedData.kinds?.find(
-      (kind: { network?: string; scheme?: string; extra?: { feePayer?: string } }) =>
-        kind.network === PAYMENT_CONFIG.network && kind.scheme === "exact"
+      (kind: {
+        network?: string;
+        scheme?: string;
+        extra?: { feePayer?: string };
+      }) => kind.network === PAYMENT_CONFIG.network && kind.scheme === "exact"
     );
 
     if (solanaSupport && solanaSupport.extra && solanaSupport.extra.feePayer) {
@@ -371,7 +382,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Extract usage information from the result
-    const usageData = (result as { usage?: { cost?: number; prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } }).usage || null;
+    const usageData =
+      (
+        result as {
+          usage?: {
+            cost?: number;
+            prompt_tokens?: number;
+            completion_tokens?: number;
+            total_tokens?: number;
+          };
+        }
+      ).usage || null;
     console.log("Raw result from Convex:", result);
 
     let paymentInfo: PaymentInfo | null = null;

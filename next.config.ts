@@ -66,7 +66,9 @@ const nextConfig: NextConfig = {
                 https://*.solana.com 
                 https://*.rpcpool.com 
                 https://*.helius.com 
-                https://*.quicknode.pro 
+                https://*.quicknode.pro
+                https://*.alchemy.com
+                https://*.alchemyapi.io 
                 https://*.walletconnect.com 
                 wss://*.walletconnect.com 
                 https://api.blocknative.com 
