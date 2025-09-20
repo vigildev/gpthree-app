@@ -1,20 +1,38 @@
 "use client";
 
-import { Send, Sparkles, Lock, Zap, Brain } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { IntegrationCard } from "@/components/integration-card";
 import { ModelSelector } from "@/components/model-selector";
-import { useState, useEffect, useRef } from "react";
+import { PrivacyBanner } from "@/components/privacy-banner";
+import { useState, useEffect } from "react";
 import { useAction, useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
+import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { api } from "../../convex/_generated/api";
+import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
+// Debug components - imports commented out
+// import { PaymentTest } from "@/components/payment-test";
+// import { WalletDebug } from "./wallet-debug";
+
+interface PaymentInfo {
+  actualCost: number; // in USD
+  refundAmount: number; // in USD
+  transactionHash?: string;
+}
+
+interface ChatMessage {
+  key: string;
+  role: "user" | "assistant";
+  content: string;
+  status: "complete";
+  paymentInfo?: PaymentInfo;
+}
 
 interface DashboardProps {
   threadId?: string;
-  onThreadChange?: (threadId: string) => void;
+  onThreadChange?: (threadId: string | undefined) => void;
 }
 
 export function Dashboard({
@@ -22,22 +40,42 @@ export function Dashboard({
   onThreadChange,
 }: DashboardProps) {
   const { ready, authenticated, user } = usePrivy();
+  const { wallets } = useSolanaWallets();
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(
-    "anthropic/claude-3.7-sonnet"
+    "anthropic/claude-3.5-sonnet"
   );
-  const [chatMessages, setChatMessages] = useState<
-    Array<{
-      key: string;
-      role: "user" | "assistant";
-      content: string;
-      status: "complete";
-    }>
-  >([]);
-  const [selectedQuickAction, setSelectedQuickAction] = useState<QuickAction | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [selectedQuickAction, setSelectedQuickAction] =
+    useState<QuickAction | null>(null);
 
-  console.log({ ready, authenticated, user });
+  // All hooks must be at the top level
+  const createThread = useAction(api.agents.createThread);
+  const continueThread = useAction(api.agents.continueThread);
+  const { makePaymentRequest } = usePaidRequest();
+
+  // Use regular Convex query to get messages for the current thread
+  const messages = useQuery(
+    api.agents.listThreadMessages,
+    currentThreadId ? { threadId: currentThreadId } : "skip"
+  );
+
+  // Handle case where thread was deleted - messages will be null/undefined after loading
+  // Only consider a thread deleted if we have a threadId but query explicitly returns null
+  const isThreadDeleted = currentThreadId && messages === null;
+
+  // Clear local chat messages when thread changes
+  useEffect(() => {
+    setChatMessages([]);
+  }, [currentThreadId]);
+
+  // Handle deleted thread - clear the current thread if it was deleted
+  useEffect(() => {
+    if (isThreadDeleted) {
+      onThreadChange?.(undefined); // Clear the thread selection
+    }
+  }, [isThreadDeleted, currentThreadId, onThreadChange]);
 
   if (!ready) {
     return (
@@ -55,43 +93,59 @@ export function Dashboard({
     );
   }
 
-  const createThread = useAction(api.agents.createThread);
-  const continueThread = useAction(api.agents.continueThread);
-
-  // Use regular Convex query to get messages for the current thread
-  const messages = useQuery(
-    api.agents.listThreadMessages,
-    currentThreadId ? { threadId: currentThreadId } : "skip"
-  );
-
   // Convert messages to UI format and ensure proper ordering (newest at bottom)
-  const persistedMessages = messages
-    ? messages
-        .sort((a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)) // Sort by creation time
-        .map((msg: any, index: number) => ({
-          key: `${msg._id || index}`,
-          role: msg.author === "user" ? "user" : "assistant",
-          content: msg.content || msg.text || "",
-          status: "complete" as const,
-        }))
-    : [];
+  const persistedMessages: ChatMessage[] =
+    messages && Array.isArray(messages) && messages.length > 0
+      ? messages
+          .sort(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)
+          ) // Sort by creation time
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((msg: any, index: number) => {
+            // Role detection based on actual Convex Agent structure
+            const isUserMessage =
+              // Check the nested message.role field (this is the definitive field!)
+              msg.message?.role === "user" ||
+              // Fallback checks for other possible structures
+              msg.author === "user" ||
+              msg.role === "user" ||
+              msg.type === "user" ||
+              msg.sender === "user" ||
+              msg.from === "user" ||
+              msg.authorRole === "user" ||
+              msg.role === "human" ||
+              msg.author === "human";
 
-  // Clear local chat messages when thread changes
-  useEffect(() => {
-    setChatMessages([]);
-  }, [currentThreadId]);
+            // Get content from the actual structure
+            const messageContent =
+              msg.text || // Direct text field
+              msg.message?.content?.[0]?.text || // Nested content structure
+              msg.content ||
+              msg.message ||
+              "";
 
-  // Use persisted messages if available, otherwise use local state
-  const displayMessages =
-    currentThreadId && persistedMessages.length > 0
-      ? persistedMessages
-      : chatMessages;
+            return {
+              key: `${msg._id || index}`,
+              role: isUserMessage ? ("user" as const) : ("assistant" as const),
+              content: messageContent,
+              status: "complete" as const,
+              // Add generic payment info for all AI messages from database
+              paymentInfo: !isUserMessage
+                ? {
+                    actualCost: 0.005, // Generic cost estimate
+                    refundAmount: 2.495, // Generic refund estimate
+                    transactionHash: undefined, // No transaction hash for old messages
+                  }
+                : undefined,
+            } as ChatMessage;
+          })
+      : [];
 
-  // Handle model change - start new conversation
-  const handleModelChange = (newModel: string) => {
-    setSelectedModel(newModel);
-    // Model changes within the same thread are fine
-  };
+  // Use persisted messages if a thread is selected, otherwise use local state
+  const displayMessages: ChatMessage[] = currentThreadId
+    ? persistedMessages // Show thread messages (now with payment info)
+    : chatMessages; // Show local messages when no thread selected
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading || !user) return;
@@ -110,46 +164,80 @@ export function Dashboard({
     setChatMessages((prev) => [...prev, userChatMessage]);
 
     try {
+      // Find user's Solana wallet for refunds
+      const solanaWallet = wallets.find(
+        (wallet) =>
+          wallet.walletClientType === "phantom" ||
+          wallet.walletClientType === "solflare" ||
+          wallet.walletClientType === "backpack" ||
+          wallet.walletClientType === "privy" ||
+          (wallet.address && wallet.address.length > 30)
+      );
+
+      // Use x402 payment system via API route instead of direct Convex calls
+      const requestBody = {
+        prompt: userMessage,
+        model: selectedModel,
+        userId: user.id,
+        systemEnhancement: selectedQuickAction?.systemEnhancement,
+        ...(currentThreadId && { threadId: currentThreadId }),
+        ...(solanaWallet?.address && {
+          userWalletAddress: solanaWallet.address,
+        }),
+      };
+
+      const response = await makePaymentRequest("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      // Handle the response based on whether it's a new thread or continuation
+      let aiResponseText: string;
+      let newThreadId: string | undefined;
+      let paymentInfo = null;
+
       if (currentThreadId) {
-        // Continue existing thread
-        const response = await continueThread({
-          prompt: userMessage,
-          threadId: currentThreadId,
-          model: selectedModel,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Continue thread response:", response);
-
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content: response,
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
+        // Continue existing thread - API now returns { text, paymentInfo }
+        if (typeof result === "string") {
+          aiResponseText = result;
+        } else {
+          aiResponseText = result.text || "No response";
+          paymentInfo = result.paymentInfo;
+        }
       } else {
-        // Create new thread
-        const response = await createThread({
-          prompt: userMessage,
-          model: selectedModel,
-          userId: user.id,
-          systemEnhancement: selectedQuickAction?.systemEnhancement,
-        });
-        console.log("Create thread response:", response);
-
-        // Add AI response to chat
-        const aiChatMessage = {
-          key: `ai-${Date.now()}`,
-          role: "assistant" as const,
-          content: response.text,
-          status: "complete" as const,
-        };
-        setChatMessages((prev) => [...prev, aiChatMessage]);
+        // Create new thread - API returns { threadId, text, paymentInfo }
+        aiResponseText = result.text || "No response";
+        newThreadId = result.threadId;
+        paymentInfo = result.paymentInfo;
 
         // Notify parent component about the new thread
-        onThreadChange?.(response.threadId);
+        if (newThreadId) {
+          onThreadChange?.(newThreadId);
+        }
       }
+
+      // Add AI response to chat
+      const aiChatMessage = {
+        key: `ai-${Date.now()}`,
+        role: "assistant" as const,
+        content: aiResponseText,
+        status: "complete" as const,
+        ...(paymentInfo && { paymentInfo }),
+      };
+
+      setChatMessages((prev) => [...prev, aiChatMessage]);
+
+      // Clear selected quick action after successful message
+      setSelectedQuickAction(null);
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -187,6 +275,17 @@ export function Dashboard({
         </p>
       </div>
 
+      {/* Privacy Banner */}
+      <PrivacyBanner />
+
+      {/* Debug components - commented out for production */}
+      {/* <WalletDebug /> */}
+
+      {/* x402 Payment Test - Development Only */}
+      {/* <div className="mb-8">
+        <PaymentTest />
+      </div> */}
+
       {/* Chat History */}
       {displayMessages.length > 0 && (
         <div className="mb-12 space-y-6">
@@ -195,14 +294,18 @@ export function Dashboard({
               key={msg.key}
               className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
             >
-              <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+              <div
+                className={`text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide ${
+                  msg.role === "user" ? "text-right" : "text-left"
+                }`}
+              >
                 {msg.role === "user" ? "You" : "GPThree"}
               </div>
               <div
                 className={`p-6 rounded-3xl ${
                   msg.role === "user"
-                    ? "bg-secondary/10 text-foreground border border-secondary/20"
-                    : "bg-card border border-border text-card-foreground shadow-sm"
+                    ? "bg-primary/10 text-foreground border border-primary/20 ml-auto"
+                    : "bg-card border border-border text-card-foreground shadow-sm mr-auto"
                 }`}
               >
                 {msg.content}
@@ -214,178 +317,243 @@ export function Dashboard({
                     </span>
                   </div>
                 )}
+
+                {/* Payment info bubble - for all AI messages */}
+                {msg.role === "assistant" && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full text-xs text-green-600">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="font-medium">
+                        {msg.paymentInfo
+                          ? `Paid with USDC $${
+                              msg.paymentInfo.actualCost < 0.01
+                                ? msg.paymentInfo.actualCost.toFixed(6)
+                                : msg.paymentInfo.actualCost.toFixed(4)
+                            }`
+                          : "Paid with USDC"}
+                      </span>
+                      {msg.paymentInfo?.transactionHash && (
+                        <a
+                          href={`https://explorer.solana.com/tx/${
+                            msg.paymentInfo.transactionHash
+                          }${
+                            typeof window !== "undefined" &&
+                            window.location.hostname === "localhost"
+                              ? "?cluster=devnet"
+                              : ""
+                          }`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-400 transition-colors"
+                          title="View transaction on Solana Explorer"
+                        >
+                          ↗️
+                        </a>
+                      )}
+                    </div>
+                    {msg.paymentInfo && msg.paymentInfo.refundAmount > 0 && (
+                      <div className="text-xs text-muted-foreground">
+                        ($
+                        {msg.paymentInfo.refundAmount < 0.01
+                          ? msg.paymentInfo.refundAmount.toFixed(6)
+                          : msg.paymentInfo.refundAmount.toFixed(3)}{" "}
+                        refunded)
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
-          {isLoading && (
-            <div className="mr-12">
-              <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                GPThree
-              </div>
-              <div className="p-6 rounded-3xl bg-card border border-border shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
-                    <div
-                      className="w-2 h-2 bg-secondary/60 rounded-full animate-pulse"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-accent/60 rounded-full animate-pulse"
-                      style={{ animationDelay: "0.4s" }}
-                    ></div>
-                  </div>
-                  <span className="text-muted-foreground font-light">
-                    Thinking...
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="mb-16">
-        {selectedQuickAction && (
-          <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-primary rounded-full"></div>
-                <span className="text-sm font-medium text-primary">
-                  {selectedQuickAction.text} Mode Active
-                </span>
-              </div>
+      {/* Loading State */}
+      {isLoading && (
+        <div className="mb-12 mr-12">
+          <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+            GPThree
+          </div>
+          <div className="p-6 rounded-3xl bg-card border border-border text-card-foreground shadow-sm mr-auto">
+            <div className="flex items-center space-x-2">
+              <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-primary/40 rounded-full animate-pulse animation-delay-100"></div>
+              <div className="w-2 h-2 bg-primary/20 rounded-full animate-pulse animation-delay-200"></div>
+              <span className="text-sm text-muted-foreground ml-2">
+                Processing...
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Input */}
+      <div className="space-y-6">
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Input
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Ask anything..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              className="h-14 px-6 text-base rounded-2xl border-border/50 bg-card/50 backdrop-blur-sm focus:border-primary/50 focus:ring-primary/20"
+              disabled={isLoading}
+            />
+          </div>
+          <Button
+            onClick={handleSendMessage}
+            disabled={!message.trim() || isLoading}
+            size="lg"
+            className="h-14 px-8 rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
+          >
+            <Send className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between text-sm">
+          {selectedQuickAction && (
+            <div className="flex items-center gap-2 text-primary">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+              <span className="text-xs">
+                {selectedQuickAction.text} mode active
+              </span>
               <button
-                onClick={() => setSelectedQuickAction(null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => {
+                  setSelectedQuickAction(null);
+                  setMessage("");
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground ml-2 underline"
               >
                 Clear
               </button>
             </div>
-          </div>
-        )}
-        <div className="mx-auto relative">
-          <Input
-            placeholder={selectedQuickAction 
-              ? `Ask anything about ${selectedQuickAction.text.toLowerCase()}...`
-              : "Ask anything... I'm your privacy-focused AI assistant"
-            }
-            className="w-full h-12 pl-4 pr-14 bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-0 text-foreground placeholder:text-muted-foreground rounded-full text-base shadow-sm"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-            disabled={isLoading}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={isLoading || !message.trim()}
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 bg-gradient-to-r from-accent to-primary hover:from-accent/80 hover:to-primary/80 disabled:from-muted disabled:to-muted text-white rounded-full transition-colors flex items-center justify-center"
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        <div className="flex items-center justify-between mt-9 ml-6">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Lock className="h-3 w-3 text-primary" />
-              <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                End-to-end encrypted
-              </span>
-            </div>
-            <span className="w-1 h-1 bg-muted-foreground rounded-full"></span>
-            <span className="text-xs text-muted-foreground">
-              Using{" "}
-              {selectedModel.split("/")[1]?.replace(/-/g, " ") || selectedModel}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Brain className="h-3 w-3 text-secondary" />
+          )}
+          <div className="flex items-center gap-x-3">
+            <div className="text-muted-foreground">Select Model</div>
             <ModelSelector
               selectedModel={selectedModel}
-              onModelSelect={handleModelChange}
-              className="w-56 h-7 text-xs"
+              onModelSelect={setSelectedModel}
+              className="w-34"
             />
           </div>
         </div>
       </div>
 
       {/* Quick Actions */}
-      <div className="mb-20">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
-          Quick Start
-        </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {QUICK_START_ACTIONS.map((action) => (
-            <button
-              key={action.text}
-              className={`p-6 text-left rounded-2xl transition-all duration-200 group ${
-                selectedQuickAction?.text === action.text
-                  ? "bg-primary/5 border border-primary/30 shadow-md"
-                  : "bg-card border border-border hover:border-primary/50 hover:shadow-md"
-              }`}
-              onClick={() => {
-                setSelectedQuickAction(action);
-                setMessage(""); // Clear input when selecting an action
-              }}
-            >
-              <div className="font-medium text-card-foreground text-sm mb-1 group-hover:text-primary transition-colors">
-                {action.text}
-              </div>
-              <div className="text-xs text-muted-foreground font-light">
-                {action.desc}
-              </div>
-            </button>
-          ))}
+      {displayMessages.length === 0 && (
+        <div className="mt-12 mb-12">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
+            Quick Start
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            {QUICK_START_ACTIONS.map((action, index) => (
+              <button
+                key={action.text}
+                onClick={() => {
+                  setSelectedQuickAction(action);
+                }}
+                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${
+                  selectedQuickAction?.text === action.text
+                    ? "from-primary/20 to-primary/10 border-primary/40 shadow-lg shadow-primary/10"
+                    : "from-card/50 to-card border border-border/50 hover:border-primary/20"
+                }`}
+              >
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="text-2xl">
+                      {index === 0
+                        ? "🔍"
+                        : index === 1
+                        ? "📊"
+                        : index === 2
+                        ? "📚"
+                        : "✍️"}
+                    </div>
+                    <h4
+                      className={`font-medium transition-colors ${
+                        selectedQuickAction?.text === action.text
+                          ? "text-primary"
+                          : "text-foreground group-hover:text-primary"
+                      }`}
+                    >
+                      {action.text}
+                      {selectedQuickAction?.text === action.text && (
+                        <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </h4>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {action.desc}
+                  </p>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Tools Section */}
-      {/* <div className="space-y-8">
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
-            Available Tools
-          </h3>
-          <p className="text-muted-foreground font-light">
-            18+ AI models and specialized tools at your disposal
-          </p>
-        </div>
+      {/* <div className="mt-24 space-y-8">
+                <div>
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Available Tools
+                    </h3>
+                    <p className="text-muted-foreground font-light">
+                        18+ AI models and specialized tools at your disposal
+                    </p>
+                </div>
 
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="bg-muted border-0 h-auto p-1 rounded-xl">
-            {["All", "Coding", "Writing", "Research", "Analysis", "Privacy"].map(
-              (tab) => (
-                <TabsTrigger
-                  key={tab}
-                  value={tab.toLowerCase()}
-                  className="rounded-lg px-6 py-3 data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm transition-all duration-200 font-light"
-                >
-                  {tab}
-                </TabsTrigger>
-              )
-            )}
-          </TabsList>
-        </Tabs>
+                <Tabs defaultValue="all" className="w-full">
+                    <TabsList className="bg-muted border-0 h-auto p-1 rounded-xl">
+                        {["All", "Coding", "Writing", "Research", "Analysis", "Privacy"].map(
+                            (tab) => (
+                                <TabsTrigger
+                                    key={tab}
+                                    value={tab.toLowerCase()}
+                                    className="rounded-lg px-6 py-3 data-[state=active]:bg-card data-[state=active]:text-card-foreground data-[state=active]:shadow-sm transition-all duration-200 font-light"
+                                >
+                                    {tab}
+                                </TabsTrigger>
+                            )
+                        )}
+                    </TabsList>
+                </Tabs>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <IntegrationCard
-            icon="🧠"
-            title="Multi-Model Intelligence"
-            description="Compare responses from multiple AI models for any task"
-            tag="intelligence"
-          />
-          <IntegrationCard
-            icon="🔐"
-            title="Privacy-First Processing"
-            description="Your data stays private with end-to-end encryption"
-            tag="privacy"
-          />
-        </div>
-      </div> */}
+                <div className="grid md:grid-cols-2 gap-6">
+                    <IntegrationCard
+                        icon="🧠"
+                        title="Multi-Model Intelligence"
+                        description="Compare responses from multiple AI models for any task"
+                        tag="intelligence"
+                    />
+                    <IntegrationCard
+                        icon="🔐"
+                        title="Privacy-First Processing"
+                        description="Your data stays private with end-to-end encryption"
+                        tag="privacy"
+                    />
+                    <IntegrationCard
+                        icon="⚡"
+                        title="Real-time Analysis"
+                        description="Instant insights and analysis across all your data"
+                        tag="speed"
+                    />
+                    <IntegrationCard
+                        icon="🎯"
+                        title="Specialized Agents"
+                        description="Expert AI agents for specific domains and use cases"
+                        tag="expertise"
+                    />
+                </div>
+            </div> */}
     </div>
   );
 }

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Moon, Plus, Sun, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { usePrivy } from "@privy-io/react-auth";
-import { useSolanaWallets } from "@privy-io/react-auth/solana";
+// import { useSolanaWallets } from "@privy-io/react-auth/solana"; // May be needed for future features
 import { useQuery, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -16,10 +15,10 @@ interface SidebarProps {
   onThreadDeleted?: (threadId: string) => void;
 }
 
-export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
+export function Sidebar({ currentThreadId, onThreadSelect, onThreadDeleted }: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const { ready, authenticated, logout, user } = usePrivy();
-  const { wallets } = useSolanaWallets();
+  // const { wallets } = useSolanaWallets(); // Unused but may be needed for future features
 
   // Fetch user's threads
   const threads =
@@ -59,6 +58,9 @@ export function Sidebar({ currentThreadId, onThreadSelect }: SidebarProps) {
     try {
       await deleteThread({ threadId, userId: user.id });
       console.log("Thread deleted successfully:", threadId);
+      
+      // Notify parent component that thread was deleted
+      onThreadDeleted?.(threadId);
     } catch (error) {
       console.error("Failed to delete thread:", error);
     }

@@ -16,6 +16,7 @@ const getAuthUserId = async (ctx: any) => {
 // Create OpenRouter instance
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
+  compatibility: 'strict', // Use strict mode for full OpenRouter features
 });
 
 // Helper function to create GPThree agent with specified model and optional system enhancement
@@ -41,13 +42,15 @@ Key principles:
 
 You are knowledgeable about various AI models and can help users choose the best model for their specific tasks. You have access to multiple AI models through OpenRouter including Claude, GPT, Llama, and many others.`;
 
-  const instructions = systemEnhancement 
+  const instructions = systemEnhancement
     ? `${baseInstructions}\n\n--- SPECIALIZED MODE ---\n\n${systemEnhancement}`
     : baseInstructions;
 
   return new Agent(components.agent, {
     name: "GPThree Assistant",
-    chat: openrouter.chat(modelId),
+    chat: openrouter.chat(modelId, {
+      usage: { include: true }, // Enable usage accounting
+    }),
     instructions,
 
     // Use OpenAI directly for embeddings with correct model ID
@@ -70,21 +73,43 @@ export const createThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
-    
+
     const modelId = model || defaultModelId;
     const agent = createGPThreeAgent(modelId, systemEnhancement);
-    
+
     // Generate a title from the first few words of the prompt
     const title = prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
-    
     const { threadId, thread } = await agent.createThread(ctx, {
       userId,
       title,
       summary: "New conversation with GPThree",
     });
-    
     const result = await thread.generateText({ prompt });
-    return { threadId, text: result.text };
+    
+    // Extract usage data from provider metadata
+    let usage = null;
+    if (result.providerMetadata?.openrouter?.usage) {
+      const openrouterUsage = result.providerMetadata.openrouter.usage as any;
+      // Type assertion since provider metadata is loosely typed
+      if (typeof openrouterUsage === 'object' && openrouterUsage !== null) {
+        usage = {
+          promptTokens: openrouterUsage.promptTokens || 0,
+          completionTokens: openrouterUsage.completionTokens || 0,
+          totalTokens: openrouterUsage.totalTokens || 0,
+          cost: openrouterUsage.cost || 0, // This is the key field we need for refunds
+        };
+        console.log('Extracted OpenRouter usage data:', usage);
+      }
+    } else {
+      console.log('No OpenRouter usage data found in provider metadata');
+      console.log('Available keys in result:', Object.keys(result));
+    }
+    
+    return { 
+      threadId, 
+      text: result.text,
+      usage: usage
+    };
   },
 });
 
@@ -100,7 +125,30 @@ export const continueThread = action({
     const agent = createGPThreeAgent(modelId, systemEnhancement);
     const { thread } = await agent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
-    return result.text;
+
+    // Extract usage data from provider metadata
+    let usage = null;
+    if (result.providerMetadata?.openrouter?.usage) {
+      const openrouterUsage = result.providerMetadata.openrouter.usage as any;
+      // Type assertion since provider metadata is loosely typed
+      if (typeof openrouterUsage === 'object' && openrouterUsage !== null) {
+        usage = {
+          promptTokens: openrouterUsage.promptTokens || 0,
+          completionTokens: openrouterUsage.completionTokens || 0,
+          totalTokens: openrouterUsage.totalTokens || 0,
+          cost: openrouterUsage.cost || 0,
+        };
+        console.log('Extracted OpenRouter usage data (continueThread):', usage);
+      }
+    } else {
+      console.log('No OpenRouter usage data found in provider metadata (continueThread)');
+    }
+
+    // Return both text and usage data for refund processing
+    return {
+      text: result.text,
+      usage: usage
+    };
   },
 });
 
@@ -114,14 +162,14 @@ export const createNewThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to create threads");
     }
-    
+
     const agent = createGPThreeAgent(defaultModelId);
     const { threadId } = await agent.createThread(ctx, {
       userId,
       title: title || "New Conversation",
       summary: "A new conversation with GPThree",
     });
-    
+
     return { threadId };
   },
 });
@@ -131,21 +179,26 @@ export const listUserThreads = query({
   args: {
     userId: v.string(),
   },
-  handler: async (ctx, { userId }): Promise<Array<{
-    _id: string;
-    title: string;
-    summary: string;
-    _creationTime: number;
-  }>> => {
+  handler: async (
+    ctx,
+    { userId }
+  ): Promise<
+    Array<{
+      _id: string;
+      title: string;
+      summary: string;
+      _creationTime: number;
+    }>
+  > => {
     try {
       const threads = await ctx.runQuery(
         components.agent.threads.listThreadsByUserId,
         {
           userId,
-          paginationOpts: { cursor: null, numItems: 50 }
+          paginationOpts: { cursor: null, numItems: 50 },
         }
       );
-      
+
       return threads.page.map((thread: any) => ({
         _id: thread._id,
         title: thread.title || "Untitled",
@@ -169,7 +222,7 @@ export const deleteThread = action({
     if (!userId) {
       throw new Error("User must be authenticated to delete threads");
     }
-    
+
     try {
       const agent = createGPThreeAgent(defaultModelId);
       await agent.deleteThreadAsync(ctx, { threadId });
@@ -196,10 +249,10 @@ export const listThreadMessages = query({
           numItems: 100,
         },
       });
-      
-      return messages.page;
+
+      return messages.page || [];
     } catch (error) {
-      console.log("Failed to fetch messages:", error);
+      console.error('Failed to fetch messages for thread:', threadId, error);
       return [];
     }
   },
