@@ -213,6 +213,9 @@ export function Dashboard({
         status: "complete" as const,
       };
       setChatMessages((prev) => [...prev, aiChatMessage]);
+      
+      // Clear selected quick action after successful message
+      setSelectedQuickAction(null);
     } catch (error) {
       console.error("Error sending message:", error);
 
@@ -345,13 +348,32 @@ export function Dashboard({
           </Button>
         </div>
 
-        <div className="flex items-center gap-x-3 justify-end text-sm">
-          <div className="text-muted-foreground">Select Model</div>
-          <ModelSelector
-            selectedModel={selectedModel}
-            onModelSelect={setSelectedModel}
-            className="w-34"
-          />
+        <div className="flex items-center justify-between text-sm">
+          {selectedQuickAction && (
+            <div className="flex items-center gap-2 text-primary">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+              <span className="text-xs">
+                {selectedQuickAction.text} mode active
+              </span>
+              <button
+                onClick={() => {
+                  setSelectedQuickAction(null);
+                  setMessage("");
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground ml-2 underline"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-x-3">
+            <div className="text-muted-foreground">Select Model</div>
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelSelect={setSelectedModel}
+              className="w-34"
+            />
+          </div>
         </div>
       </div>
 
@@ -365,8 +387,14 @@ export function Dashboard({
             {QUICK_START_ACTIONS.map((action, index) => (
               <button
                 key={action.text}
-                onClick={() => setSelectedQuickAction(action)}
-                className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card/50 to-card border border-border/50 p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 hover:scale-[1.02]"
+                onClick={() => {
+                  setSelectedQuickAction(action);
+                }}
+                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${
+                  selectedQuickAction?.text === action.text
+                    ? "from-primary/20 to-primary/10 border-primary/40 shadow-lg shadow-primary/10"
+                    : "from-card/50 to-card border border-border/50 hover:border-primary/20"
+                }`}
               >
                 <div className="relative z-10">
                   <div className="flex items-center gap-3 mb-3">
@@ -379,8 +407,17 @@ export function Dashboard({
                         ? "📚"
                         : "✍️"}
                     </div>
-                    <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    <h4 className={`font-medium transition-colors ${
+                      selectedQuickAction?.text === action.text
+                        ? "text-primary"
+                        : "text-foreground group-hover:text-primary"
+                    }`}>
                       {action.text}
+                      {selectedQuickAction?.text === action.text && (
+                        <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+                          Active
+                        </span>
+                      )}
                     </h4>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed">
