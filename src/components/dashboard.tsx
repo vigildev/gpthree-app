@@ -73,9 +73,6 @@ export function Dashboard({
   // Handle deleted thread - clear the current thread if it was deleted
   useEffect(() => {
     if (isThreadDeleted) {
-      console.warn(
-        `Thread ${currentThreadId} appears to have been deleted, clearing selection`
-      );
       onThreadChange?.(undefined); // Clear the thread selection
     }
   }, [isThreadDeleted, currentThreadId, onThreadChange]);
