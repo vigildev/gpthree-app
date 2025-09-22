@@ -68,23 +68,26 @@ function calculateRefund(
   return refundUSD;
 }
 
-const feePayer = await getFeePayerFromFacilitator();
+// Payment requirements factory function
+async function createPaymentRequirements() {
+  const feePayer = await getFeePayerFromFacilitator();
 
-const paymentRequirements = {
-  scheme: "exact",
-  network: PAYMENT_CONFIG.network,
-  maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
-  resource: `${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`, // Full URL as per spec
-  description: PAYMENT_CONFIG.description,
-  mimeType: "application/json",
-  payTo: PAYMENT_CONFIG.recipientAddress,
-  maxTimeoutSeconds: 300,
-  asset: PAYMENT_CONFIG.asset, // Use USDC based on network
-  outputSchema: {},
-  extra: {
-    feePayer, // Dynamic fee payer from facilitator
-  },
-};
+  return {
+    scheme: "exact",
+    network: PAYMENT_CONFIG.network,
+    maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
+    resource: `${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`, // Full URL as per spec
+    description: PAYMENT_CONFIG.description,
+    mimeType: "application/json",
+    payTo: PAYMENT_CONFIG.recipientAddress,
+    maxTimeoutSeconds: 300,
+    asset: PAYMENT_CONFIG.asset, // Use USDC based on network
+    outputSchema: {},
+    extra: {
+      feePayer, // Dynamic fee payer from facilitator
+    },
+  };
+}
 
 // Helper function to verify payment with facilitator
 async function verifyPayment(paymentHeader: string): Promise<boolean> {
@@ -102,6 +105,7 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     );
 
     console.log("preparing payload to send to facilitator");
+    const paymentRequirements = await createPaymentRequirements();
     const verifyPayload = {
       x402Version: paymentPayload.x402Version,
       paymentPayload: paymentPayload,
@@ -185,6 +189,7 @@ async function settlePayment(paymentHeader: string): Promise<boolean> {
     );
 
     console.log("preparing payload to send to facilitator");
+    const paymentRequirements = await createPaymentRequirements();
     const settlePayload = {
       x402Version: paymentPayload.x402Version,
       paymentPayload: paymentPayload,
@@ -294,6 +299,7 @@ async function getFeePayerFromFacilitator(): Promise<string> {
 
 // Helper function to create 402 response with payment requirements
 async function create402Response(): Promise<NextResponse> {
+  const paymentRequirements = await createPaymentRequirements();
   const responseBody = {
     x402Version: 1,
     accepts: [paymentRequirements],
