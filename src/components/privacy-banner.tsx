@@ -31,14 +31,14 @@ export function PrivacyBanner({ className }: PrivacyBannerProps) {
       className={`bg-green-500/5 border border-green-500/20 rounded-xl p-4 mb-6 ${className}`}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-green-500" />
             <span className="text-sm font-medium text-green-600">
               Privacy Protected
             </span>
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs sm:text-sm text-muted-foreground">
             No chat logs • Daily log deletion
           </div>
         </div>
@@ -65,7 +65,7 @@ export function PrivacyBanner({ className }: PrivacyBannerProps) {
 
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-green-500/10">
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex items-start gap-3">
               <div className="mt-1">
                 <Trash2 className="h-4 w-4 text-green-500" />

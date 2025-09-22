@@ -256,24 +256,24 @@ export function Dashboard({
   };
 
   return (
-    <div className="p-12 max-w-5xl mx-auto">
-      <div className="mb-16">
+    <div className="p-4 sm:p-6 lg:p-12 max-w-5xl mx-auto">
+      <div className="mb-8 lg:mb-16">
         <button
           onClick={onNewBlankThread}
-          className="flex items-center gap-4 mb-4 hover:opacity-80 transition-opacity cursor-pointer"
+          className="flex items-center gap-3 lg:gap-4 mb-4 hover:opacity-80 transition-opacity cursor-pointer"
         >
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">
             <img
               src="/gpthree-logo-white.svg"
               alt="GPThree"
-              className="h-8 w-8"
+              className="h-6 w-6 lg:h-8 lg:w-8"
             />
           </div>
-          <h1 className="text-5xl font-light text-foreground tracking-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-5xl font-light text-foreground tracking-tight">
             GPThree
           </h1>
         </button>
-        <p className="text-muted-foreground text-lg font-light ml-16">
+        <p className="text-muted-foreground text-base lg:text-lg font-light ml-12 lg:ml-16">
           Privacy-first AI intelligence
         </p>
       </div>
@@ -291,11 +291,15 @@ export function Dashboard({
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
-        <div className="mb-12 space-y-6">
+        <div className="mb-8 lg:mb-12 space-y-4 lg:space-y-6">
           {displayMessages.map((msg) => (
             <div
               key={msg.key}
-              className={`${msg.role === "user" ? "ml-12" : "mr-12"}`}
+              className={`${
+                msg.role === "user"
+                  ? "ml-4 sm:ml-8 lg:ml-12"
+                  : "mr-4 sm:mr-8 lg:mr-12"
+              }`}
             >
               <div
                 className={`text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide ${
@@ -305,7 +309,7 @@ export function Dashboard({
                 {msg.role === "user" ? "You" : "GPThree"}
               </div>
               <div
-                className={`p-6 rounded-3xl ${
+                className={`p-4 lg:p-6 rounded-2xl lg:rounded-3xl ${
                   msg.role === "user"
                     ? "bg-primary/10 text-foreground border border-primary/20 ml-auto"
                     : "bg-card border border-border text-card-foreground shadow-sm mr-auto"
@@ -373,11 +377,11 @@ export function Dashboard({
 
       {/* Loading State */}
       {isLoading && (
-        <div className="mb-12 mr-12">
+        <div className="mb-8 lg:mb-12 mr-4 sm:mr-8 lg:mr-12">
           <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
             GPThree
           </div>
-          <div className="p-6 rounded-3xl bg-card border border-border text-card-foreground shadow-sm mr-auto">
+          <div className="p-4 lg:p-6 rounded-2xl lg:rounded-3xl bg-card border border-border text-card-foreground shadow-sm mr-auto">
             <div className="flex items-center space-x-2">
               <div className="w-2 h-2 bg-primary/60 rounded-full animate-pulse"></div>
               <div className="w-2 h-2 bg-primary/40 rounded-full animate-pulse animation-delay-100"></div>
@@ -391,8 +395,8 @@ export function Dashboard({
       )}
 
       {/* Message Input */}
-      <div className="space-y-6">
-        <div className="flex gap-4">
+      <div className="space-y-4 lg:space-y-6">
+        <div className="flex gap-2 lg:gap-4">
           <div className="flex-1">
             <Input
               value={message}
@@ -404,7 +408,7 @@ export function Dashboard({
                   handleSendMessage();
                 }
               }}
-              className="h-14 px-6 text-base rounded-2xl border-border/50 bg-card/50 backdrop-blur-sm focus:border-primary/50 focus:ring-primary/20"
+              className="h-12 lg:h-14 px-4 lg:px-6 text-sm lg:text-base rounded-xl lg:rounded-2xl border-border/50 bg-card/50 backdrop-blur-sm focus:border-primary/50 focus:ring-primary/20"
               disabled={isLoading}
             />
           </div>
@@ -412,13 +416,13 @@ export function Dashboard({
             onClick={handleSendMessage}
             disabled={!message.trim() || isLoading}
             size="lg"
-            className="h-14 px-8 rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
+            className="h-12 lg:h-14 px-4 lg:px-8 rounded-xl lg:rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
           >
-            <Send className="h-5 w-5" />
+            <Send className="h-4 w-4 lg:h-5 lg:w-5" />
           </Button>
         </div>
 
-        <div className="flex items-center justify-between text-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm">
           {selectedQuickAction && (
             <div className="flex items-center gap-2 text-primary">
               <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
@@ -436,12 +440,14 @@ export function Dashboard({
               </button>
             </div>
           )}
-          <div className="flex items-center gap-x-3">
-            <div className="text-muted-foreground">Select Model</div>
+          <div className="flex items-center gap-x-2 lg:gap-x-3 w-full sm:w-auto justify-end">
+            <div className="text-muted-foreground text-xs lg:text-sm">
+              Select Model
+            </div>
             <ModelSelector
               selectedModel={selectedModel}
               onModelSelect={setSelectedModel}
-              className="w-34"
+              className="w-32 lg:w-34"
             />
           </div>
         </div>
@@ -449,26 +455,26 @@ export function Dashboard({
 
       {/* Quick Actions */}
       {displayMessages.length === 0 && (
-        <div className="mt-12 mb-12">
-          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-6">
+        <div className="mt-8 lg:mt-12 mb-8 lg:mb-12">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4 lg:mb-6">
             Quick Start
           </h3>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-3 lg:gap-4">
             {QUICK_START_ACTIONS.map((action, index) => (
               <button
                 key={action.text}
                 onClick={() => {
                   setSelectedQuickAction(action);
                 }}
-                className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${
+                className={`group relative overflow-hidden rounded-xl lg:rounded-2xl bg-gradient-to-br p-4 lg:p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${
                   selectedQuickAction?.text === action.text
                     ? "from-primary/20 to-primary/10 border-primary/40 shadow-lg shadow-primary/10"
                     : "from-card/50 to-card border border-border/50 hover:border-primary/20"
                 }`}
               >
                 <div className="relative z-10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="text-2xl">
+                  <div className="flex items-center gap-2 lg:gap-3 mb-2 lg:mb-3">
+                    <div className="text-xl lg:text-2xl">
                       {index === 0
                         ? "🔍"
                         : index === 1
@@ -478,7 +484,7 @@ export function Dashboard({
                         : "✍️"}
                     </div>
                     <h4
-                      className={`font-medium transition-colors ${
+                      className={`font-medium text-sm lg:text-base transition-colors ${
                         selectedQuickAction?.text === action.text
                           ? "text-primary"
                           : "text-foreground group-hover:text-primary"
@@ -492,7 +498,7 @@ export function Dashboard({
                       )}
                     </h4>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-xs lg:text-sm text-muted-foreground leading-relaxed">
                     {action.desc}
                   </p>
                 </div>

@@ -88,14 +88,18 @@ export function Sidebar({
   };
 
   return (
-    <div className="w-64 border-r border-border bg-background p-4 flex flex-col h-full">
+    <div className="w-64 lg:w-64 border-r border-border bg-background p-4 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-6">
         <button
           onClick={onNewBlankThread}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
         >
-          <img src="/gpthree-logo.svg" alt="GPThree" className="h-8 w-8" />
-          <span className="self-center text-2xl font-semibold whitespace-nowrap text-foreground">
+          <img
+            src="/gpthree-logo.svg"
+            alt="GPThree"
+            className="h-7 w-7 lg:h-8 lg:w-8"
+          />
+          <span className="self-center text-xl lg:text-2xl font-semibold whitespace-nowrap text-foreground">
             GPThree
           </span>
         </button>
