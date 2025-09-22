@@ -1,7 +1,10 @@
 import { components } from "./_generated/api";
 import { internal } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
-import { createThread as createAgentThread, listMessages } from "@convex-dev/agent";
+import {
+  createThread as createAgentThread,
+  listMessages,
+} from "@convex-dev/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { action, query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
@@ -16,7 +19,7 @@ const getAuthUserId = async (ctx: any) => {
 // Create OpenRouter instance
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
-  compatibility: 'strict', // Use strict mode for full OpenRouter features
+  compatibility: "strict", // Use strict mode for full OpenRouter features
 });
 
 // Helper function to create GPThree agent with specified model and optional system enhancement
@@ -85,30 +88,30 @@ export const createThread = action({
       summary: "New conversation with GPThree",
     });
     const result = await thread.generateText({ prompt });
-    
+
     // Extract usage data from provider metadata
     let usage = null;
     if (result.providerMetadata?.openrouter?.usage) {
       const openrouterUsage = result.providerMetadata.openrouter.usage as any;
       // Type assertion since provider metadata is loosely typed
-      if (typeof openrouterUsage === 'object' && openrouterUsage !== null) {
+      if (typeof openrouterUsage === "object" && openrouterUsage !== null) {
         usage = {
           promptTokens: openrouterUsage.promptTokens || 0,
           completionTokens: openrouterUsage.completionTokens || 0,
           totalTokens: openrouterUsage.totalTokens || 0,
           cost: openrouterUsage.cost || 0, // This is the key field we need for refunds
         };
-        console.log('Extracted OpenRouter usage data:', usage);
+        console.log("Extracted OpenRouter usage data:", usage);
       }
     } else {
-      console.log('No OpenRouter usage data found in provider metadata');
-      console.log('Available keys in result:', Object.keys(result));
+      console.log("No OpenRouter usage data found in provider metadata");
+      console.log("Available keys in result:", Object.keys(result));
     }
-    
-    return { 
-      threadId, 
+
+    return {
+      threadId,
       text: result.text,
-      usage: usage
+      usage: usage,
     };
   },
 });
@@ -123,6 +126,33 @@ export const continueThread = action({
   handler: async (ctx, { prompt, threadId, model, systemEnhancement }) => {
     const modelId = model || defaultModelId;
     const agent = createGPThreeAgent(modelId, systemEnhancement);
+
+    // Check if this thread has a generic title and update it with the first user message
+    try {
+      const threadInfo = await ctx.runQuery(
+        components.agent.threads.getThread,
+        { threadId }
+      );
+      if (
+        threadInfo &&
+        (threadInfo.title === "New Conversation" || !threadInfo.title)
+      ) {
+        // Generate a title from the first few words of the prompt
+        const newTitle =
+          prompt.length > 40 ? prompt.substring(0, 40) + "..." : prompt;
+        await ctx.runMutation(components.agent.threads.updateThread, {
+          threadId,
+          patch: { title: newTitle },
+        });
+        console.log(
+          `Updated thread title from "${threadInfo.title}" to "${newTitle}"`
+        );
+      }
+    } catch (error) {
+      console.log("Failed to update thread title:", error);
+      // Continue with message generation even if title update fails
+    }
+
     const { thread } = await agent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
 
@@ -131,23 +161,25 @@ export const continueThread = action({
     if (result.providerMetadata?.openrouter?.usage) {
       const openrouterUsage = result.providerMetadata.openrouter.usage as any;
       // Type assertion since provider metadata is loosely typed
-      if (typeof openrouterUsage === 'object' && openrouterUsage !== null) {
+      if (typeof openrouterUsage === "object" && openrouterUsage !== null) {
         usage = {
           promptTokens: openrouterUsage.promptTokens || 0,
           completionTokens: openrouterUsage.completionTokens || 0,
           totalTokens: openrouterUsage.totalTokens || 0,
           cost: openrouterUsage.cost || 0,
         };
-        console.log('Extracted OpenRouter usage data (continueThread):', usage);
+        console.log("Extracted OpenRouter usage data (continueThread):", usage);
       }
     } else {
-      console.log('No OpenRouter usage data found in provider metadata (continueThread)');
+      console.log(
+        "No OpenRouter usage data found in provider metadata (continueThread)"
+      );
     }
 
     // Return both text and usage data for refund processing
     return {
       text: result.text,
-      usage: usage
+      usage: usage,
     };
   },
 });
@@ -252,9 +284,8 @@ export const listThreadMessages = query({
 
       return messages.page || [];
     } catch (error) {
-      console.error('Failed to fetch messages for thread:', threadId, error);
+      console.error("Failed to fetch messages for thread:", threadId, error);
       return [];
     }
   },
 });
-

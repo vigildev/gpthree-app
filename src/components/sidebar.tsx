@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Moon, Plus, Sun, Trash2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -13,9 +12,15 @@ interface SidebarProps {
   currentThreadId?: string;
   onThreadSelect?: (threadId: string) => void;
   onThreadDeleted?: (threadId: string) => void;
+  onNewBlankThread?: () => void;
 }
 
-export function Sidebar({ currentThreadId, onThreadSelect, onThreadDeleted }: SidebarProps) {
+export function Sidebar({
+  currentThreadId,
+  onThreadSelect,
+  onThreadDeleted,
+  onNewBlankThread,
+}: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const { ready, authenticated, logout, user } = usePrivy();
   // const { wallets } = useSolanaWallets(); // Unused but may be needed for future features
@@ -34,11 +39,11 @@ export function Sidebar({ currentThreadId, onThreadSelect, onThreadDeleted }: Si
       console.error("User not authenticated");
       return;
     }
-    
+
     try {
-      const { threadId } = await createNewThread({ 
+      const { threadId } = await createNewThread({
         title: "New Conversation",
-        userId: user.id 
+        userId: user.id,
       });
       onThreadSelect?.(threadId);
     } catch (error) {
@@ -49,16 +54,16 @@ export function Sidebar({ currentThreadId, onThreadSelect, onThreadDeleted }: Si
   const handleDeleteThread = async (threadId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!user) {
       console.error("User not authenticated");
       return;
     }
-    
+
     try {
       await deleteThread({ threadId, userId: user.id });
       console.log("Thread deleted successfully:", threadId);
-      
+
       // Notify parent component that thread was deleted
       onThreadDeleted?.(threadId);
     } catch (error) {
@@ -83,14 +88,21 @@ export function Sidebar({ currentThreadId, onThreadSelect, onThreadDeleted }: Si
   };
 
   return (
-    <div className="w-64 border-r border-border bg-background p-4 flex flex-col h-full">
+    <div className="w-64 lg:w-64 border-r border-border bg-background p-4 flex flex-col h-full">
       <div className="flex items-center gap-2 mb-6">
-        <Link href="/" className="flex items-center gap-2">
-          <img src="/gpthree-logo.svg" alt="GPThree" className="h-8 w-8" />
-          <span className="self-center text-2xl font-semibold whitespace-nowrap text-foreground">
+        <button
+          onClick={onNewBlankThread}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+        >
+          <img
+            src="/gpthree-logo.svg"
+            alt="GPThree"
+            className="h-7 w-7 lg:h-8 lg:w-8"
+          />
+          <span className="self-center text-xl lg:text-2xl font-semibold whitespace-nowrap text-foreground">
             GPThree
           </span>
-        </Link>
+        </button>
       </div>
 
       <Button

@@ -4,17 +4,21 @@ import { Sidebar } from "@/components/sidebar";
 import { Dashboard } from "@/components/dashboard";
 import { usePrivy } from "@privy-io/react-auth";
 import { LoginButton } from "@/components/login-button";
-import { Shield, Trash2, Clock } from "lucide-react";
+import { Shield, Trash2, Clock, Menu, X } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const { ready, authenticated } = usePrivy();
   const [currentThreadId, setCurrentThreadId] = useState<string | undefined>();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const handleThreadSelect = (threadId: string) => {
     setCurrentThreadId(threadId);
+    // Close mobile sidebar when thread is selected
+    setIsMobileSidebarOpen(false);
   };
-  
+
   const handleThreadChange = (threadId: string | undefined) => {
     setCurrentThreadId(threadId);
   };
@@ -26,35 +30,102 @@ export default function Home() {
     }
   };
 
+  const handleNewBlankThread = () => {
+    // Clear current thread to show blank thread view
+    setCurrentThreadId(undefined);
+  };
+
   return (
     <div className="flex h-screen bg-background">
+      {/* Mobile Header */}
       {ready && authenticated && (
-        <Sidebar
-          currentThreadId={currentThreadId}
-          onThreadSelect={handleThreadSelect}
-          onThreadDeleted={handleThreadDeleted}
-        />
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-background border-b border-border p-4 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="p-2"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <button
+            onClick={handleNewBlankThread}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            <img src="/gpthree-logo.svg" alt="GPThree" className="h-6 w-6" />
+            <span className="text-lg font-semibold text-foreground">
+              GPThree
+            </span>
+          </button>
+          <div className="w-9" /> {/* Spacer for balance */}
+        </div>
       )}
-      <main className="flex-1 overflow-auto">
+
+      {/* Desktop Sidebar */}
+      {ready && authenticated && (
+        <div className="hidden lg:block">
+          <Sidebar
+            currentThreadId={currentThreadId}
+            onThreadSelect={handleThreadSelect}
+            onThreadDeleted={handleThreadDeleted}
+            onNewBlankThread={handleNewBlankThread}
+          />
+        </div>
+      )}
+
+      {/* Mobile Sidebar Overlay */}
+      {ready && authenticated && isMobileSidebarOpen && (
+        <>
+          <div
+            className="lg:hidden fixed inset-0 z-40 bg-black/50"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <div className="lg:hidden fixed top-0 left-0 bottom-0 z-50 w-80 max-w-[80vw]">
+            <div className="relative h-full">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="absolute top-4 right-4 z-10 p-2"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <Sidebar
+                currentThreadId={currentThreadId}
+                onThreadSelect={handleThreadSelect}
+                onThreadDeleted={handleThreadDeleted}
+                onNewBlankThread={handleNewBlankThread}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      <main
+        className={`flex-1 overflow-auto ${
+          ready && authenticated ? "lg:pt-0 pt-16" : ""
+        }`}
+      >
         {ready && authenticated ? (
           <Dashboard
             threadId={currentThreadId}
             onThreadChange={handleThreadChange}
+            onNewBlankThread={handleNewBlankThread}
           />
         ) : (
-          <div className="h-full flex flex-col items-center justify-start pt-24 gap-8">
+          <div className="h-full flex flex-col items-center justify-start pt-12 lg:pt-24 gap-6 lg:gap-8 px-4">
             <div className="text-center">
-              <h1 className="text-5xl font-semibold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent mb-3">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent mb-3">
                 GPThree
               </h1>
-              <p className="text-pretty tracking-wide text-muted-foreground text-lg">
+              <p className="text-pretty tracking-wide text-muted-foreground text-base lg:text-lg max-w-md">
                 A privacy-first AI assistant for everything.
               </p>
             </div>
 
             {/* Privacy Features Highlight */}
-            <div className="max-w-md mx-auto">
-              <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-6 mb-6">
+            <div className="max-w-md mx-auto w-full">
+              <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 lg:p-6 mb-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Shield className="h-5 w-5 text-green-500" />
                   <span className="text-sm font-medium text-green-600">
@@ -99,7 +170,7 @@ export default function Home() {
 
             <LoginButton />
 
-            <div className="text-center text-xs text-muted-foreground max-w-sm">
+            <div className="text-center text-xs text-muted-foreground max-w-sm px-4">
               Connect with your Solana wallet for the most private experience,
               or use email for quick access.
             </div>

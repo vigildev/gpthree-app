@@ -15,6 +15,8 @@ export const env = createEnv({
     TREASURY_WALLET_ADDRESS: z.string().default(""),
     TREASURY_PRIVATE_KEY: z.string().default(""),
     TREASURY_WALLET_ID: z.string().optional(),
+    NETWORK: z.string().default("devnet"),
+    ASSET: z.string().default(""),
   },
   /*
    * Environment variables available on the client (and server).
@@ -47,5 +49,7 @@ export const env = createEnv({
     TREASURY_WALLET_ADDRESS: process.env.TREASURY_WALLET_ADDRESS,
     TREASURY_PRIVATE_KEY: process.env.TREASURY_PRIVATE_KEY,
     TREASURY_WALLET_ID: process.env.TREASURY_WALLET_ID,
+    NETWORK: process.env.NETWORK,
+    ASSET: process.env.ASSET,
   },
 });
