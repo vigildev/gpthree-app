@@ -33,11 +33,13 @@ interface ChatMessage {
 interface DashboardProps {
   threadId?: string;
   onThreadChange?: (threadId: string | undefined) => void;
+  onNewBlankThread?: () => void;
 }
 
 export function Dashboard({
   threadId: currentThreadId,
   onThreadChange,
+  onNewBlankThread,
 }: DashboardProps) {
   const { ready, authenticated, user } = usePrivy();
   const { wallets } = useSolanaWallets();
@@ -256,7 +258,10 @@ export function Dashboard({
   return (
     <div className="p-12 max-w-5xl mx-auto">
       <div className="mb-16">
-        <div className="flex items-center gap-4 mb-4">
+        <button
+          onClick={onNewBlankThread}
+          className="flex items-center gap-4 mb-4 hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-r from-accent to-primary flex items-center justify-center shadow-lg">
             <img
               src="/gpthree-logo-white.svg"
@@ -267,7 +272,7 @@ export function Dashboard({
           <h1 className="text-5xl font-light text-foreground tracking-tight">
             GPThree
           </h1>
-        </div>
+        </button>
         <p className="text-muted-foreground text-lg font-light ml-16">
           Privacy-first AI intelligence
         </p>

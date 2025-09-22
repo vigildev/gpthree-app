@@ -14,7 +14,7 @@ export default function Home() {
   const handleThreadSelect = (threadId: string) => {
     setCurrentThreadId(threadId);
   };
-  
+
   const handleThreadChange = (threadId: string | undefined) => {
     setCurrentThreadId(threadId);
   };
@@ -26,6 +26,11 @@ export default function Home() {
     }
   };
 
+  const handleNewBlankThread = () => {
+    // Clear current thread to show blank thread view
+    setCurrentThreadId(undefined);
+  };
+
   return (
     <div className="flex h-screen bg-background">
       {ready && authenticated && (
@@ -33,6 +38,7 @@ export default function Home() {
           currentThreadId={currentThreadId}
           onThreadSelect={handleThreadSelect}
           onThreadDeleted={handleThreadDeleted}
+          onNewBlankThread={handleNewBlankThread}
         />
       )}
       <main className="flex-1 overflow-auto">
@@ -40,6 +46,7 @@ export default function Home() {
           <Dashboard
             threadId={currentThreadId}
             onThreadChange={handleThreadChange}
+            onNewBlankThread={handleNewBlankThread}
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-start pt-24 gap-8">
