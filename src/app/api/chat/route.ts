@@ -138,7 +138,7 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
     try {
       facilitatorResponse = JSON.parse(responseText);
     } catch (parseError) {
-      console.error("Failed to parse facilitator response:", parseError);
+      console.error("Failed to parse facilitator response: ", parseError);
       return false;
     }
 
