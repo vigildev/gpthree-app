@@ -131,7 +131,7 @@ async function verifyPayment(paymentHeader: string): Promise<boolean> {
 
     console.log("Facilitator response status:", response.status);
     const responseText = await response.text();
-    console.log("Facilitator response body:", responseText);
+    console.log("Facilitator response body: ", responseText);
 
     // Parse the JSON response to check isValid field
     let facilitatorResponse;
