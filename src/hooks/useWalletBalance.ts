@@ -63,12 +63,21 @@ export function useWalletBalance(
   const checkExternalWalletBalance = useCallback(
     async (walletAddress: string) => {
       try {
-        // Use the public Solana RPC endpoint
+        // Use Alchemy RPC endpoints (with public fallback)
         const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
         const rpcUrl =
           network === "solana"
-            ? "https://api.mainnet-beta.solana.com"
-            : "https://api.devnet.solana.com";
+            ? process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
+              "https://api.mainnet-beta.solana.com"
+            : process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET ||
+              "https://api.devnet.solana.com";
+
+        console.log("🌐 External wallet RPC network detection:", {
+          envVar: process.env.NEXT_PUBLIC_NETWORK,
+          detected: network,
+          isMainnet: network === "solana",
+          rpcUrl,
+        });
 
         // Get token mint address for the current network
         const mintAddress =
@@ -215,8 +224,15 @@ export function useWalletBalance(
 
     try {
       // Determine the Solana chain (mainnet vs devnet)
-      const network = process.env.NETWORK || "solana-devnet";
-      const chain = network === "solana" ? "solana" : "solana"; // Privy API uses "solana" for both
+      const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
+      const chain = "solana"; // Privy API uses "solana" for both mainnet and devnet
+
+      console.log("🌐 Privy API network detection:", {
+        envVar: process.env.NEXT_PUBLIC_NETWORK,
+        detected: network,
+        isMainnet: network === "solana",
+        chain,
+      });
 
       const requestBody = {
         walletId: walletId,

@@ -15,8 +15,9 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 const PAYMENT_CONFIG = {
   amount: 2500000, // $2.5 USDC
   currency: "USDC",
-  network: process.env.NETWORK,
-  asset: process.env.ASSET,
+  network:
+    process.env.NEXT_PUBLIC_NETWORK === "solana" ? "solana" : "solana-devnet", // Map to correct x402 network names
+  asset: process.env.ASSET || "usdc", // Add fallback
   facilitatorUrl: "https://facilitator.payai.network",
   recipientAddress: process.env.TREASURY_WALLET_ADDRESS,
   description: "AI Chat Request - GPThree Assistant (Pay-per-use with refund)",
@@ -72,7 +73,7 @@ function calculateRefund(
 async function createPaymentRequirements() {
   const feePayer = await getFeePayerFromFacilitator();
 
-  return {
+  const paymentRequirements = {
     scheme: "exact",
     network: PAYMENT_CONFIG.network,
     maxAmountRequired: PAYMENT_CONFIG.amount.toString(),
@@ -87,6 +88,16 @@ async function createPaymentRequirements() {
       feePayer, // Dynamic fee payer from facilitator
     },
   };
+
+  console.log("🌐 API Payment Requirements Created:", {
+    network: paymentRequirements.network,
+    envVar: process.env.NEXT_PUBLIC_NETWORK,
+    scheme: paymentRequirements.scheme,
+    amount: paymentRequirements.maxAmountRequired,
+    asset: paymentRequirements.asset,
+  });
+
+  return paymentRequirements;
 }
 
 // Helper function to verify payment with facilitator

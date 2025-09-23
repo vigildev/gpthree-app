@@ -23,7 +23,12 @@ import {
 // Custom x402 payment interceptor based on the official PR implementation
 function createCustomPaymentFetch(
   fetchFn: typeof fetch,
-  solanaWallet: { signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>; address: string },
+  solanaWallet: {
+    signTransaction: (
+      tx: VersionedTransaction
+    ) => Promise<VersionedTransaction>;
+    address: string;
+  },
   maxValue: bigint = BigInt(0)
 ) {
   return async (input: RequestInfo, init?: RequestInit): Promise<Response> => {
@@ -44,6 +49,20 @@ function createCustomPaymentFetch(
     const parsedPaymentRequirements: PaymentRequirements[] =
       (rawResponse.accepts as PaymentRequirements[]) || [];
 
+    console.log(
+      "🔍 Available payment requirements (full objects):",
+      parsedPaymentRequirements
+    );
+    console.log(
+      "🔍 Available payment requirements (summary):",
+      parsedPaymentRequirements.map((req) => ({
+        scheme: req.scheme,
+        network: req.network,
+        maxAmountRequired: req.maxAmountRequired,
+        allFields: Object.keys(req),
+      }))
+    );
+
     // Select first suitable payment requirement for Solana
     const selectedRequirements = parsedPaymentRequirements.find(
       (req: PaymentRequirements) =>
@@ -52,8 +71,18 @@ function createCustomPaymentFetch(
     );
 
     if (!selectedRequirements) {
+      console.error(
+        "❌ No suitable Solana payment requirements found. Available networks:",
+        parsedPaymentRequirements.map((req) => req.network)
+      );
       throw new Error("No suitable Solana payment requirements found");
     }
+
+    console.log("✅ Selected payment requirements:", {
+      scheme: selectedRequirements.scheme,
+      network: selectedRequirements.network,
+      maxAmountRequired: selectedRequirements.maxAmountRequired,
+    });
 
     // Check amount
     if (BigInt(selectedRequirements.maxAmountRequired) > maxValue) {
@@ -80,7 +109,6 @@ function createCustomPaymentFetch(
     return await fetchFn(input, newInit);
   };
 }
-
 
 // Helper function to create payment header from transaction
 function createPaymentHeaderFromTransaction(
@@ -115,7 +143,12 @@ function createPaymentHeaderFromTransaction(
 
 // EXACT copy of the official PR's createAndSignPayment function, adapted for Privy
 async function createCustomSolanaPaymentHeader(
-  solanaWallet: { signTransaction: (tx: VersionedTransaction) => Promise<VersionedTransaction>; address: string },
+  solanaWallet: {
+    signTransaction: (
+      tx: VersionedTransaction
+    ) => Promise<VersionedTransaction>;
+    address: string;
+  },
   x402Version: number,
   paymentRequirements: PaymentRequirements
 ): Promise<string> {
@@ -124,15 +157,17 @@ async function createCustomSolanaPaymentHeader(
 
   // "https://api.mainnet-beta.solana.com"
 
-  // Use custom RPC URLs from environment if available, fallback to public RPCs
+  // Use Alchemy RPC URLs first, fallback to public RPCs
   const rpcUrl = isMainnet
-    ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
+    ? process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
       "https://api.mainnet-beta.solana.com"
-    : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || "https://api.devnet.solana.com";
+    : process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET ||
+      "https://api.devnet.solana.com";
 
   const connection = new Connection(rpcUrl, "confirmed");
 
-  const feePayer = (paymentRequirements as { extra?: { feePayer?: string } })?.extra?.feePayer;
+  const feePayer = (paymentRequirements as { extra?: { feePayer?: string } })
+    ?.extra?.feePayer;
   if (typeof feePayer !== "string" || !feePayer) {
     throw new Error(
       "Missing facilitator feePayer in payment requirements (extra.feePayer)."
