@@ -59,6 +59,77 @@ export function useWalletBalance(
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Alternative balance checking for external wallets using Solana RPC
+  const checkExternalWalletBalance = useCallback(
+    async (walletAddress: string) => {
+      try {
+        // Use the public Solana RPC endpoint
+        const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
+        const rpcUrl =
+          network === "solana"
+            ? "https://api.mainnet-beta.solana.com"
+            : "https://api.devnet.solana.com";
+
+        // Get token mint address for the current network
+        const mintAddress =
+          network === "solana"
+            ? tokenConfig.mintAddresses.mainnet
+            : tokenConfig.mintAddresses.devnet;
+
+        // Get token accounts for this wallet
+        const response = await fetch(rpcUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "getTokenAccountsByOwner",
+            params: [
+              walletAddress,
+              {
+                mint: mintAddress,
+              },
+              {
+                encoding: "jsonParsed",
+              },
+            ],
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(`RPC Error: ${data.error.message}`);
+        }
+
+        let totalBalance = 0;
+
+        if (data.result && data.result.value && data.result.value.length > 0) {
+          // Sum up all token account balances
+          for (const account of data.result.value) {
+            const balance =
+              account.account.data.parsed.info.tokenAmount.uiAmount || 0;
+            totalBalance += balance;
+          }
+        }
+
+        setBalance(totalBalance);
+        setError(null);
+      } catch (err) {
+        console.error("Error checking external wallet balance:", err);
+        setError(
+          `Failed to check external wallet balance: ${
+            err instanceof Error ? err.message : "Unknown error"
+          }`
+        );
+        setBalance(0);
+      }
+    },
+    [tokenConfig.mintAddresses.mainnet, tokenConfig.mintAddresses.devnet]
+  );
+
   const checkBalance = useCallback(async (): Promise<void> => {
     console.log("🔍 Starting balance check...");
 
@@ -184,7 +255,7 @@ export function useWalletBalance(
 
       // Extract token balance from the response
       const tokenBalance = data.balances?.find(
-        (balance: any) =>
+        (balance: { asset: string; display_values?: Record<string, string> }) =>
           balance.asset.toLowerCase() === tokenConfig.symbol.toLowerCase()
       );
 
@@ -204,80 +275,14 @@ export function useWalletBalance(
     } finally {
       setIsLoading(false);
     }
-  }, [authenticated, ready, user, wallets]);
-
-  // Alternative balance checking for external wallets using Solana RPC
-  const checkExternalWalletBalance = async (walletAddress: string) => {
-    console.log("🔄 Checking external wallet balance for:", walletAddress);
-
-    try {
-      // Use the public Solana RPC endpoint
-      const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
-      const rpcUrl =
-        network === "solana"
-          ? "https://api.mainnet-beta.solana.com"
-          : "https://api.devnet.solana.com";
-
-      console.log("🌐 Using RPC URL:", rpcUrl);
-
-      // Get token mint address for the current network
-      const mintAddress =
-        network === "solana"
-          ? tokenConfig.mintAddresses.mainnet
-          : tokenConfig.mintAddresses.devnet;
-
-      // Get token accounts for this wallet
-      const response = await fetch(rpcUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [
-            walletAddress,
-            {
-              mint: mintAddress,
-            },
-            {
-              encoding: "jsonParsed",
-            },
-          ],
-        }),
-      });
-
-      const data = await response.json();
-      console.log("📡 RPC Response:", JSON.stringify(data, null, 2));
-
-      if (data.error) {
-        throw new Error(`RPC Error: ${data.error.message}`);
-      }
-
-      let totalBalance = 0;
-
-      if (data.result && data.result.value && data.result.value.length > 0) {
-        // Sum up all token account balances
-        for (const account of data.result.value) {
-          const balance =
-            account.account.data.parsed.info.tokenAmount.uiAmount || 0;
-          totalBalance += balance;
-        }
-      }
-
-      setBalance(totalBalance);
-      setError(null);
-    } catch (err) {
-      console.error("Error checking external wallet balance:", err);
-      setError(
-        `Failed to check external wallet balance: ${
-          err instanceof Error ? err.message : "Unknown error"
-        }`
-      );
-      setBalance(0);
-    }
-  };
+  }, [
+    authenticated,
+    ready,
+    user,
+    wallets,
+    tokenConfig.symbol,
+    checkExternalWalletBalance,
+  ]);
 
   // Auto-check balance when wallet is connected
   useEffect(() => {
