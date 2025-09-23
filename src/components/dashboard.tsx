@@ -61,7 +61,8 @@ export function Dashboard({
     hasInsufficientFunds,
     isLoading: isCheckingBalance,
     checkBalance,
-  } = useWalletBalance();
+    tokenSymbol,
+  } = useWalletBalance(); // Uses USDC by default
 
   const { toast } = useToast();
 
@@ -164,9 +165,9 @@ export function Dashboard({
     if (hasInsufficientFunds) {
       toast({
         title: "Insufficient Funds",
-        description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(
+        description: `You need at least 2.5 ${tokenSymbol.toUpperCase()} to send a message. Your current balance is ${balance.toFixed(
           2
-        )} USDC.`,
+        )} ${tokenSymbol.toUpperCase()}.`,
         variant: "destructive",
       });
       return;
@@ -186,9 +187,9 @@ export function Dashboard({
       if (hasInsufficientFunds) {
         toast({
           title: "Insufficient Funds",
-          description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(
+          description: `You need at least 2.5 ${tokenSymbol.toUpperCase()} to send a message. Your current balance is ${balance.toFixed(
             2
-          )} USDC.`,
+          )} ${tokenSymbol.toUpperCase()}.`,
           variant: "destructive",
         });
         return;
@@ -463,7 +464,9 @@ export function Dashboard({
             size="lg"
             className="h-12 lg:h-14 px-4 lg:px-8 rounded-xl lg:rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
             title={
-              hasInsufficientFunds ? "Insufficient USDC balance" : undefined
+              hasInsufficientFunds
+                ? `Insufficient ${tokenSymbol.toUpperCase()} balance`
+                : undefined
             }
           >
             <Send className="h-4 w-4 lg:h-5 lg:w-5" />
@@ -509,12 +512,12 @@ export function Dashboard({
                 >
                   {isCheckingBalance
                     ? "Checking..."
-                    : `${balance.toFixed(2)} USDC`}
+                    : `${balance.toFixed(2)} ${tokenSymbol.toUpperCase()}`}
                 </span>
               </div>
               {hasInsufficientFunds && !isCheckingBalance && (
                 <p className="text-xs text-red-400">
-                  (Minimum 2.5 USDC balance required.)
+                  (Minimum 2.5 {tokenSymbol.toUpperCase()} balance required.)
                 </p>
               )}
             </div>

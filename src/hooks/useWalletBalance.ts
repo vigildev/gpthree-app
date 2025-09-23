@@ -2,17 +2,57 @@ import { useState, useEffect, useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallets } from "@privy-io/react-auth/solana";
 
-const REQUIRED_BALANCE_USDC = 2.5; // $2.5 USDC required
+// Token configuration for different assets
+export interface TokenConfig {
+  symbol: string;
+  mintAddresses: {
+    mainnet: string;
+    devnet: string;
+  };
+  requiredBalance: number;
+}
+
+// Predefined token configurations
+export const TOKEN_CONFIGS: Record<string, TokenConfig> = {
+  usdc: {
+    symbol: "usdc",
+    mintAddresses: {
+      mainnet: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    },
+    requiredBalance: 2.5,
+  },
+  sol: {
+    symbol: "sol",
+    mintAddresses: {
+      mainnet: "So11111111111111111111111111111111111111112", // Wrapped SOL
+      devnet: "So11111111111111111111111111111111111111112",
+    },
+    requiredBalance: 0.1,
+  },
+};
 
 export interface WalletBalanceInfo {
-  balance: number; // Balance in USDC (not micro units)
+  balance: number; // Balance in token units (not micro units)
   hasInsufficientFunds: boolean;
   isLoading: boolean;
   error: string | null;
   checkBalance: () => Promise<void>;
+  tokenSymbol: string;
 }
 
-export function useWalletBalance(): WalletBalanceInfo {
+export interface UseWalletBalanceOptions {
+  tokenConfig?: TokenConfig;
+  asset?: keyof typeof TOKEN_CONFIGS;
+}
+
+export function useWalletBalance(
+  options: UseWalletBalanceOptions = {}
+): WalletBalanceInfo {
+  // Default to USDC if no configuration provided
+  const tokenConfig =
+    options.tokenConfig ||
+    (options.asset ? TOKEN_CONFIGS[options.asset] : TOKEN_CONFIGS.usdc);
   const { authenticated, ready, user } = usePrivy();
   const { wallets } = useSolanaWallets();
   const [balance, setBalance] = useState<number>(0);
@@ -109,7 +149,7 @@ export function useWalletBalance(): WalletBalanceInfo {
 
       const requestBody = {
         walletId: walletId,
-        asset: "usdc",
+        asset: tokenConfig.symbol,
         chain: chain,
       };
 
@@ -142,27 +182,19 @@ export function useWalletBalance(): WalletBalanceInfo {
         throw new Error(data.error);
       }
 
-      // Extract USDC balance from the response
-      const usdcBalance = data.balances?.find(
-        (balance: any) => balance.asset.toLowerCase() === "usdc"
+      // Extract token balance from the response
+      const tokenBalance = data.balances?.find(
+        (balance: any) =>
+          balance.asset.toLowerCase() === tokenConfig.symbol.toLowerCase()
       );
 
-      console.log("💰 USDC Balance found:", usdcBalance);
-
-      if (usdcBalance) {
-        // Use the display value in USDC units
-        const balanceInUsdc = parseFloat(
-          usdcBalance.display_values?.usdc || "0"
+      if (tokenBalance) {
+        // Use the display value in token units
+        const balanceInTokens = parseFloat(
+          tokenBalance.display_values?.[tokenConfig.symbol] || "0"
         );
-        console.log("💵 Parsed USDC balance:", balanceInUsdc);
-        console.log("🚨 Insufficient funds check:", {
-          balance: balanceInUsdc,
-          required: REQUIRED_BALANCE_USDC,
-          hasInsufficientFunds: balanceInUsdc < REQUIRED_BALANCE_USDC,
-        });
-        setBalance(balanceInUsdc);
+        setBalance(balanceInTokens);
       } else {
-        console.log("❌ No USDC balance found in response");
         setBalance(0);
       }
     } catch (err) {
@@ -182,19 +214,17 @@ export function useWalletBalance(): WalletBalanceInfo {
       // Use the public Solana RPC endpoint
       const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
       const rpcUrl =
-        network === "mainnet"
+        network === "solana"
           ? "https://api.mainnet-beta.solana.com"
           : "https://api.devnet.solana.com";
 
       console.log("🌐 Using RPC URL:", rpcUrl);
 
-      // USDC token mint addresses
-      const usdcMintAddress =
-        network === "mainnet"
-          ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // USDC on mainnet
-          : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // USDC on devnet
-
-      console.log("💰 Using USDC mint:", usdcMintAddress);
+      // Get token mint address for the current network
+      const mintAddress =
+        network === "solana"
+          ? tokenConfig.mintAddresses.mainnet
+          : tokenConfig.mintAddresses.devnet;
 
       // Get token accounts for this wallet
       const response = await fetch(rpcUrl, {
@@ -209,7 +239,7 @@ export function useWalletBalance(): WalletBalanceInfo {
           params: [
             walletAddress,
             {
-              mint: usdcMintAddress,
+              mint: mintAddress,
             },
             {
               encoding: "jsonParsed",
@@ -228,7 +258,7 @@ export function useWalletBalance(): WalletBalanceInfo {
       let totalBalance = 0;
 
       if (data.result && data.result.value && data.result.value.length > 0) {
-        // Sum up all USDC token account balances
+        // Sum up all token account balances
         for (const account of data.result.value) {
           const balance =
             account.account.data.parsed.info.tokenAmount.uiAmount || 0;
@@ -236,17 +266,10 @@ export function useWalletBalance(): WalletBalanceInfo {
         }
       }
 
-      console.log("💵 Total USDC balance from RPC:", totalBalance);
-      console.log("🚨 Insufficient funds check (RPC):", {
-        balance: totalBalance,
-        required: REQUIRED_BALANCE_USDC,
-        hasInsufficientFunds: totalBalance < REQUIRED_BALANCE_USDC,
-      });
-
       setBalance(totalBalance);
       setError(null);
     } catch (err) {
-      console.error("❌ Error checking external wallet balance:", err);
+      console.error("Error checking external wallet balance:", err);
       setError(
         `Failed to check external wallet balance: ${
           err instanceof Error ? err.message : "Unknown error"
@@ -263,7 +286,7 @@ export function useWalletBalance(): WalletBalanceInfo {
     }
   }, [authenticated, ready, wallets.length, user, checkBalance]);
 
-  const hasInsufficientFunds = balance < REQUIRED_BALANCE_USDC;
+  const hasInsufficientFunds = balance < tokenConfig.requiredBalance;
 
   return {
     balance,
@@ -271,5 +294,6 @@ export function useWalletBalance(): WalletBalanceInfo {
     isLoading,
     error,
     checkBalance,
+    tokenSymbol: tokenConfig.symbol,
   };
 }
