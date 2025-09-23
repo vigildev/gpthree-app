@@ -530,7 +530,7 @@ export function Dashboard({
             <ModelSelector
               selectedModel={selectedModel}
               onModelSelect={setSelectedModel}
-              className="w-32 lg:w-34"
+              className="w-40 lg:w-48"
             />
           </div>
         </div>
