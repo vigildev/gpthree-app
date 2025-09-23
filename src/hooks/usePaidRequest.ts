@@ -2,7 +2,6 @@ import { useCallback } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { type PaymentRequirements } from "../lib/x402-solana-types";
-import { env } from "@/env.mjs";
 import {
   PublicKey,
   Connection,
@@ -49,20 +48,6 @@ function createCustomPaymentFetch(
     const parsedPaymentRequirements: PaymentRequirements[] =
       (rawResponse.accepts as PaymentRequirements[]) || [];
 
-    console.log(
-      "🔍 Available payment requirements (full objects):",
-      parsedPaymentRequirements
-    );
-    console.log(
-      "🔍 Available payment requirements (summary):",
-      parsedPaymentRequirements.map((req) => ({
-        scheme: req.scheme,
-        network: req.network,
-        maxAmountRequired: req.maxAmountRequired,
-        allFields: Object.keys(req),
-      }))
-    );
-
     // Select first suitable payment requirement for Solana
     const selectedRequirements = parsedPaymentRequirements.find(
       (req: PaymentRequirements) =>
@@ -77,12 +62,6 @@ function createCustomPaymentFetch(
       );
       throw new Error("No suitable Solana payment requirements found");
     }
-
-    console.log("✅ Selected payment requirements:", {
-      scheme: selectedRequirements.scheme,
-      network: selectedRequirements.network,
-      maxAmountRequired: selectedRequirements.maxAmountRequired,
-    });
 
     // Check amount
     if (BigInt(selectedRequirements.maxAmountRequired) > maxValue) {

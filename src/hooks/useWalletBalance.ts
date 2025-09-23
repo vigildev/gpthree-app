@@ -72,13 +72,6 @@ export function useWalletBalance(
             : process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET ||
               "https://api.devnet.solana.com";
 
-        console.log("🌐 External wallet RPC network detection:", {
-          envVar: process.env.NEXT_PUBLIC_NETWORK,
-          detected: network,
-          isMainnet: network === "solana",
-          rpcUrl,
-        });
-
         // Get token mint address for the current network
         const mintAddress =
           network === "solana"
@@ -140,17 +133,10 @@ export function useWalletBalance(
   );
 
   const checkBalance = useCallback(async (): Promise<void> => {
-    console.log("🔍 Starting balance check...");
-
     if (!authenticated || !ready || !user) {
       setError("Wallet not connected");
       return;
     }
-
-    console.log("👤 User authenticated:", {
-      userId: user.id,
-      walletsCount: wallets.length,
-    });
 
     // Find user's Solana wallet
     const solanaWallet = wallets.find(
@@ -176,31 +162,11 @@ export function useWalletBalance(
         account.address.toLowerCase() === solanaWallet.address.toLowerCase()
     );
 
-    console.log(
-      "🔗 User linked accounts:",
-      user.linkedAccounts.map((acc) => ({
-        type: acc.type,
-        chainType: acc.type === "wallet" ? acc.chainType : "N/A",
-        address:
-          acc.type === "wallet" || acc.type === "smart_wallet"
-            ? acc.address
-            : "N/A",
-      }))
-    );
-
     // Check if wallet has an ID (only embedded wallets have server IDs)
     if (!userSolanaWallet) {
       setError("Wallet not found in linked accounts");
-      console.log("❌ Wallet not found in user's linked accounts");
       return;
     }
-
-    console.log("✅ Found wallet in linked accounts:", {
-      type: userSolanaWallet.type,
-      address:
-        userSolanaWallet.type === "wallet" ? userSolanaWallet.address : "N/A",
-      hasId: "id" in userSolanaWallet,
-    });
 
     // For embedded wallets, we need the wallet ID. For external wallets, we can use the address
     const walletId =
@@ -209,30 +175,17 @@ export function useWalletBalance(
         : null;
 
     if (!walletId) {
-      console.log(
-        "⚠️ No wallet ID available - trying alternative method for external wallet"
-      );
       // Try alternative balance checking for external wallets
       await checkExternalWalletBalance(solanaWallet.address);
       return;
     }
 
-    console.log("✅ Using wallet ID:", walletId);
-
     setIsLoading(true);
     setError(null);
 
     try {
-      // Determine the Solana chain (mainnet vs devnet)
-      const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
-      const chain = "solana"; // Privy API uses "solana" for both mainnet and devnet
-
-      console.log("🌐 Privy API network detection:", {
-        envVar: process.env.NEXT_PUBLIC_NETWORK,
-        detected: network,
-        isMainnet: network === "solana",
-        chain,
-      });
+      // Privy API uses "solana" for both mainnet and devnet
+      const chain = "solana";
 
       const requestBody = {
         walletId: walletId,
@@ -249,23 +202,13 @@ export function useWalletBalance(
         body: JSON.stringify(requestBody),
       });
 
-      console.log(
-        "📡 API Response status:",
-        response.status,
-        response.statusText
-      );
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.log("❌ API Error response:", errorText);
         throw new Error(`Failed to fetch balance: ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log("📦 API Response data:", JSON.stringify(data, null, 2));
 
       if (data.error) {
-        console.log("❌ API returned error:", data.error);
         throw new Error(data.error);
       }
 

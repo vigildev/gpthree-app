@@ -89,14 +89,6 @@ async function createPaymentRequirements() {
     },
   };
 
-  console.log("🌐 API Payment Requirements Created:", {
-    network: paymentRequirements.network,
-    envVar: process.env.NEXT_PUBLIC_NETWORK,
-    scheme: paymentRequirements.scheme,
-    amount: paymentRequirements.maxAmountRequired,
-    asset: paymentRequirements.asset,
-  });
-
   return paymentRequirements;
 }
 
