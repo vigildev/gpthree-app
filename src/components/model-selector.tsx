@@ -163,7 +163,7 @@ export function ModelSelector({
           className="w-[420px] max-h-96 bg-popover border border-border rounded-xl shadow-lg overflow-hidden"
           sideOffset={8}
           onKeyDown={(e) => {
-            // Prevent Select's built-in typeahead when search input is focused
+            // prevent Select's built-in typeahead when search input is focused
             if (searchInputRef.current === document.activeElement) {
               e.preventDefault();
               e.stopPropagation();
