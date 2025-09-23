@@ -56,7 +56,13 @@ export function Dashboard({
 
   // All hooks must be at the top level
   const { makePaymentRequest } = usePaidRequest();
-  const { balance, hasInsufficientFunds, isLoading: isCheckingBalance, checkBalance } = useWalletBalance();
+  const {
+    balance,
+    hasInsufficientFunds,
+    isLoading: isCheckingBalance,
+    checkBalance,
+  } = useWalletBalance();
+
   const { toast } = useToast();
 
   // Use regular Convex query to get messages for the current thread
@@ -158,7 +164,9 @@ export function Dashboard({
     if (hasInsufficientFunds) {
       toast({
         title: "Insufficient Funds",
-        description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(2)} USDC.`,
+        description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(
+          2
+        )} USDC.`,
         variant: "destructive",
       });
       return;
@@ -170,15 +178,17 @@ export function Dashboard({
         title: "Checking Balance",
         description: "Please wait while we verify your wallet balance...",
       });
-      
+
       // Refresh balance and try again
       await checkBalance();
-      
+
       // Check again after refresh
       if (hasInsufficientFunds) {
         toast({
           title: "Insufficient Funds",
-          description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(2)} USDC.`,
+          description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(
+            2
+          )} USDC.`,
           variant: "destructive",
         });
         return;
@@ -449,32 +459,67 @@ export function Dashboard({
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!message.trim() || isLoading}
+            disabled={!message.trim() || isLoading || hasInsufficientFunds}
             size="lg"
             className="h-12 lg:h-14 px-4 lg:px-8 rounded-xl lg:rounded-2xl bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50"
+            title={
+              hasInsufficientFunds ? "Insufficient USDC balance" : undefined
+            }
           >
             <Send className="h-4 w-4 lg:h-5 lg:w-5" />
           </Button>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm">
-          {selectedQuickAction && (
-            <div className="flex items-center gap-2 text-primary">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-              <span className="text-xs">
-                {selectedQuickAction.text} mode active
-              </span>
-              <button
-                onClick={() => {
-                  setSelectedQuickAction(null);
-                  setMessage("");
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground ml-2 underline"
-              >
-                Clear
-              </button>
+          <div className="flex items-center gap-4">
+            {selectedQuickAction && (
+              <div className="flex items-center gap-2 text-primary">
+                <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                <span className="text-xs">
+                  {selectedQuickAction.text} mode active
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedQuickAction(null);
+                    setMessage("");
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground ml-2 underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            {/* Balance indicator */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isCheckingBalance
+                      ? "bg-yellow-500 animate-pulse"
+                      : hasInsufficientFunds
+                      ? "bg-red-500"
+                      : "bg-green-500"
+                  }`}
+                ></div>
+                <span
+                  className={`text-xs ${
+                    hasInsufficientFunds ? "text-red-400" : "text-green-400"
+                  }`}
+                >
+                  {isCheckingBalance
+                    ? "Checking..."
+                    : `${balance.toFixed(2)} USDC`}
+                </span>
+              </div>
+              {hasInsufficientFunds && !isCheckingBalance && (
+                <p className="text-xs text-red-400">
+                  (Minimum 2.5 USDC balance required.)
+                </p>
+              )}
             </div>
-          )}
+          </div>
+
           <div className="flex items-center gap-x-2 lg:gap-x-3 w-full sm:w-auto justify-end">
             <div className="text-muted-foreground text-xs lg:text-sm">
               Select Model
