@@ -11,6 +11,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallets } from "@privy-io/react-auth/solana";
 import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
+import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { useToast } from "@/hooks/use-toast";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 // Debug components - imports commented out
 // import { PaymentTest } from "@/components/payment-test";
@@ -54,6 +56,8 @@ export function Dashboard({
 
   // All hooks must be at the top level
   const { makePaymentRequest } = usePaidRequest();
+  const { balance, hasInsufficientFunds, isLoading: isCheckingBalance, checkBalance } = useWalletBalance();
+  const { toast } = useToast();
 
   // Use regular Convex query to get messages for the current thread
   const messages = useQuery(
@@ -149,6 +153,37 @@ export function Dashboard({
 
   const handleSendMessage = async () => {
     if (!message.trim() || isLoading || !user) return;
+
+    // Check wallet balance before making the API call
+    if (hasInsufficientFunds) {
+      toast({
+        title: "Insufficient Funds",
+        description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(2)} USDC.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If balance is still loading, wait a moment and check again
+    if (isCheckingBalance) {
+      toast({
+        title: "Checking Balance",
+        description: "Please wait while we verify your wallet balance...",
+      });
+      
+      // Refresh balance and try again
+      await checkBalance();
+      
+      // Check again after refresh
+      if (hasInsufficientFunds) {
+        toast({
+          title: "Insufficient Funds",
+          description: `You need at least 2.5 USDC to send a message. Your current balance is ${balance.toFixed(2)} USDC.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const userMessage = message;
     setMessage("");
