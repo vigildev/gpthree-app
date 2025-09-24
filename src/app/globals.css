@@ -89,4 +89,31 @@
     background-image: linear-gradient(transparent, transparent),
       linear-gradient(to right, #dc1fff, #00ffa3);
   }
+
+  .animate-gradient-text {
+    background: linear-gradient(
+      -45deg,
+      hsl(var(--accent)),
+      hsl(var(--primary)),
+      hsl(var(--secondary)),
+      hsl(var(--accent))
+    );
+    background-size: 400% 400%;
+    animation: gradient-cycle 4s ease-in-out infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  @keyframes gradient-cycle {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
 }

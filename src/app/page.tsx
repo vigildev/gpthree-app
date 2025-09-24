@@ -115,7 +115,7 @@ export default function Home() {
         ) : (
           <div className="h-full flex flex-col items-center justify-start pt-12 lg:pt-24 gap-6 lg:gap-8 px-4">
             <div className="text-center">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent mb-3">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold animate-gradient-text mb-3">
                 GPThree
               </h1>
               <p className="text-pretty tracking-wide text-muted-foreground text-base lg:text-lg max-w-md mb-2">
