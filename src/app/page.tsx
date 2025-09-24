@@ -118,8 +118,11 @@ export default function Home() {
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent mb-3">
                 GPThree
               </h1>
-              <p className="text-pretty tracking-wide text-muted-foreground text-base lg:text-lg max-w-md">
-                A privacy-first AI assistant for everything.
+              <p className="text-pretty tracking-wide text-muted-foreground text-base lg:text-lg max-w-md mb-2">
+                A privacy-first pay-per-use LLM aggregator for everything.
+              </p>
+              <p className="text-sm text-muted-foreground/80">
+                Powered by PayAI x402
               </p>
             </div>
 
