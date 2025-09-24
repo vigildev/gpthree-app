@@ -7,6 +7,7 @@ import { LoginButton } from "@/components/login-button";
 import { Shield, Trash2, Clock, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Home() {
   const { ready, authenticated } = usePrivy();
@@ -122,7 +123,15 @@ export default function Home() {
                 A privacy-first pay-per-use LLM aggregator for everything.
               </p>
               <p className="text-sm text-muted-foreground/80">
-                Powered by PayAI x402
+                Powered by{" "}
+                <Link
+                  href="https://x.com/payainetwork?lang=en"
+                  target="_blank"
+                  className="text-secondary hover:text-primary underline"
+                >
+                  PayAI
+                </Link>{" "}
+                x402
               </p>
             </div>
 
