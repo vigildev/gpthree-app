@@ -7,6 +7,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
   getMint,
 } from "@solana/spl-token";
+import { env } from "../env.mjs";
 
 export interface RefundResult {
   success: boolean;
@@ -21,27 +22,66 @@ export class RefundService {
   private connection: Connection;
 
   constructor() {
+    // Log environment variables for debugging
+    console.log(
+      `🔧 NEXT_PUBLIC_PRIVY_APP_ID: ${
+        env.NEXT_PUBLIC_PRIVY_APP_ID || "NOT SET"
+      }`
+    );
+    console.log(
+      `🔧 PRIVY_APP_SECRET: ${
+        env.PRIVY_APP_SECRET
+          ? "[REDACTED - LENGTH: " + env.PRIVY_APP_SECRET.length + "]"
+          : "NOT SET"
+      }`
+    );
+    console.log(
+      `🔧 NEXT_PUBLIC_NETWORK: ${env.NEXT_PUBLIC_NETWORK || "NOT SET"}`
+    );
+    console.log(
+      `🔧 TREASURY_WALLET_ID: ${env.TREASURY_WALLET_ID || "NOT SET"}`
+    );
+
+    // Validate that required environment variables are set
+    if (!env.NEXT_PUBLIC_PRIVY_APP_ID) {
+      throw new Error(
+        "NEXT_PUBLIC_PRIVY_APP_ID environment variable is required but not set"
+      );
+    }
+    if (!env.PRIVY_APP_SECRET) {
+      throw new Error(
+        "PRIVY_APP_SECRET environment variable is required but not set"
+      );
+    }
+
     this.privy = new PrivyClient(
-      process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
-      process.env.PRIVY_APP_SECRET!
+      env.NEXT_PUBLIC_PRIVY_APP_ID,
+      env.PRIVY_APP_SECRET
     );
 
     // Treasury wallet ID (set after importing wallet via script)
-    this.treasuryWalletId = process.env.TREASURY_WALLET_ID || "";
+    this.treasuryWalletId = env.TREASURY_WALLET_ID || "";
 
-    // USDC mint address
-    this.usdcMint = new PublicKey(
-      process.env.ASSET || "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-    );
+    // USDC mint address - use correct mint for each network
+    const network = env.NEXT_PUBLIC_NETWORK || "solana-devnet";
+    // Use the original working USDC mint address
+    const defaultUsdcMint =
+      network === "solana"
+        ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // Mainnet USDC
+        : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Correct devnet USDC
+
+    this.usdcMint = new PublicKey(env.ASSET || defaultUsdcMint);
+
+    console.log(`🔧 Environment NETWORK: ${network || "not set"}`);
+    console.log(`🔧 Environment ASSET: ${env.ASSET || "not set"}`);
+    console.log(`🔧 Using mint: ${this.usdcMint.toBase58() || "not set"}`);
 
     // Solana connection for building transactions
-    const network = process.env.NEXT_PUBLIC_NETWORK || "solana-devnet";
     const rpcUrl =
       network === "solana"
-        ? process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
+        ? env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
           "https://api.mainnet-beta.solana.com"
-        : process.env.NEXT_PUBLIC_SOLANA_RPC_DEVNET ||
-          "https://api.devnet.solana.com";
+        : env.NEXT_PUBLIC_SOLANA_RPC_DEVNET || "https://api.devnet.solana.com";
 
     this.connection = new Connection(rpcUrl, "confirmed");
   }
@@ -120,7 +160,7 @@ export class RefundService {
     refundAmount: number
   ): Promise<Transaction> {
     const userPubkey = new PublicKey(userAddress);
-    const treasuryPubkey = new PublicKey(process.env.TREASURY_WALLET_ADDRESS!);
+    const treasuryPubkey = new PublicKey(env.TREASURY_WALLET_ADDRESS);
 
     console.log(`🏗️ Building refund transaction:`);
     console.log(`   From: ${treasuryPubkey.toBase58()}`);
@@ -132,7 +172,7 @@ export class RefundService {
       )} USDC micro-units (integer for BigInt)`
     );
 
-    // Determine which token program to use
+    // Determine which token program to use (revert to original working logic)
     const mintInfo = await this.connection.getAccountInfo(
       this.usdcMint,
       "confirmed"
@@ -152,6 +192,7 @@ export class RefundService {
     console.log(`💰 USDC mint: ${this.usdcMint.toBase58()}`);
     console.log(`🔧 Token program: ${programId.toBase58()}`);
     console.log(`📊 Decimals: ${mint.decimals}`);
+    console.log(`🔗 RPC URL: ${this.connection.rpcEndpoint}`);
 
     // Get associated token addresses
     const treasuryAta = await getAssociatedTokenAddress(
@@ -268,12 +309,12 @@ export class RefundService {
   private getSolanaCaip2ChainId():
     | "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
     | "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" {
-    const network = process.env.NETWORK || "solana-devnet";
+    const network = env.NEXT_PUBLIC_NETWORK || "solana-devnet";
 
     if (network === "solana") {
       return "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"; // Mainnet
     } else {
-      return "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"; // Devnet
+      return "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"; // Solana Devnet
     }
   }
 }

@@ -1,8 +1,42 @@
 # GPThree Setup Instructions
 
-## Next Steps to Enable AI Chat
+## Environment Variables Setup (REQUIRED FIRST!)
 
-Since your terminal doesn't have package managers available, follow these steps:
+Create a `.env.local` file in the root directory with these required variables:
+
+```bash
+# === REQUIRED: Privy Authentication ===
+# Get these from your Privy dashboard: https://dashboard.privy.io/
+NEXT_PUBLIC_PRIVY_APP_ID=clxxxxxxxxxxxxxxxxxx
+PRIVY_APP_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# === REQUIRED: Convex Database ===
+# Get this from your Convex dashboard: https://dashboard.convex.dev/
+NEXT_PUBLIC_CONVEX_URL=https://xxxxx.convex.cloud
+
+# === REQUIRED: OpenRouter API ===
+# Get this from OpenRouter: https://openrouter.ai/keys
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# === OPTIONAL: Solana Configuration ===
+NEXT_PUBLIC_NETWORK=solana-devnet
+NEXT_PUBLIC_SOLANA_RPC_MAINNET=https://api.mainnet-beta.solana.com
+NEXT_PUBLIC_SOLANA_RPC_DEVNET=https://api.devnet.solana.com
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+**⚠️ Important:** Without proper environment variables, you'll get "Invalid Privy app id" errors and the app won't work.
+
+### USDC Configuration
+
+The app automatically selects the correct USDC mint address based on your `NEXT_PUBLIC_NETWORK` setting:
+
+- **Solana Devnet** (`NEXT_PUBLIC_NETWORK=solana-devnet`): Uses mainnet USDC for compatibility
+- **Mainnet** (`NEXT_PUBLIC_NETWORK=solana`): Uses `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
+
+You can override this by setting `ASSET=<mint_address>` in your `.env.local` file if needed.
+
+## Next Steps to Enable AI Chat
 
 ### 1. Install the Agent Component Package
 

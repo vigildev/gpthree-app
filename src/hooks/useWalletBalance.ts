@@ -7,7 +7,7 @@ export interface TokenConfig {
   symbol: string;
   mintAddresses: {
     mainnet: string;
-    devnet: string;
+    "solana-devnet": string;
   };
   requiredBalance: number;
 }
@@ -18,7 +18,7 @@ export const TOKEN_CONFIGS: Record<string, TokenConfig> = {
     symbol: "usdc",
     mintAddresses: {
       mainnet: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      devnet: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+      "solana-devnet": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
     },
     requiredBalance: 2.5,
   },
@@ -26,7 +26,7 @@ export const TOKEN_CONFIGS: Record<string, TokenConfig> = {
     symbol: "sol",
     mintAddresses: {
       mainnet: "So11111111111111111111111111111111111111112", // Wrapped SOL
-      devnet: "So11111111111111111111111111111111111111112",
+      "solana-devnet": "So11111111111111111111111111111111111111112",
     },
     requiredBalance: 0.1,
   },
@@ -64,7 +64,7 @@ export function useWalletBalance(
     async (walletAddress: string) => {
       try {
         // Use Alchemy RPC endpoints (with public fallback)
-        const network = process.env.NEXT_PUBLIC_NETWORK || "devnet";
+        const network = process.env.NEXT_PUBLIC_NETWORK || "solana-devnet";
         const rpcUrl =
           network === "solana"
             ? process.env.NEXT_PUBLIC_SOLANA_RPC_MAINNET ||
@@ -76,7 +76,7 @@ export function useWalletBalance(
         const mintAddress =
           network === "solana"
             ? tokenConfig.mintAddresses.mainnet
-            : tokenConfig.mintAddresses.devnet;
+            : tokenConfig.mintAddresses["solana-devnet"];
 
         // Get token accounts for this wallet
         const response = await fetch(rpcUrl, {
@@ -129,7 +129,10 @@ export function useWalletBalance(
         setBalance(0);
       }
     },
-    [tokenConfig.mintAddresses.mainnet, tokenConfig.mintAddresses.devnet]
+    [
+      tokenConfig.mintAddresses.mainnet,
+      tokenConfig.mintAddresses["solana-devnet"],
+    ]
   );
 
   const checkBalance = useCallback(async (): Promise<void> => {
@@ -184,7 +187,7 @@ export function useWalletBalance(
     setError(null);
 
     try {
-      // Privy API uses "solana" for both mainnet and devnet
+      // Privy API uses "solana" for both mainnet and solana-devnet
       const chain = "solana";
 
       const requestBody = {
