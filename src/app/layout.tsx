@@ -5,7 +5,6 @@ import { PrivyProvider } from "@privy-io/react-auth";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import { env } from "@/env.mjs";
 import "./globals.css";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
 
