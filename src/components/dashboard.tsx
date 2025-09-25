@@ -1,6 +1,6 @@
 "use client";
 
-import { Send } from "lucide-react";
+import { Send, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModelSelector } from "@/components/model-selector";
@@ -523,6 +523,25 @@ export function Dashboard({
                     ? "Checking..."
                     : `${balance.toFixed(2)} ${tokenSymbol.toUpperCase()}`}
                 </span>
+                {/* Refresh balance button */}
+                <button
+                  onClick={() => checkBalance()}
+                  disabled={isCheckingBalance}
+                  className={`ml-1 p-1 rounded-full hover:bg-muted/50 transition-colors ${
+                    isCheckingBalance
+                      ? "cursor-not-allowed"
+                      : "hover:text-primary"
+                  }`}
+                  title="Refresh balance"
+                >
+                  <RefreshCw
+                    className={`h-3 w-3 ${
+                      isCheckingBalance
+                        ? "animate-spin text-muted-foreground"
+                        : ""
+                    }`}
+                  />
+                </button>
               </div>
               {hasInsufficientFunds && !isCheckingBalance && (
                 <p className="text-xs text-red-400">

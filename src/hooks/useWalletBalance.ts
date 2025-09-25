@@ -177,14 +177,19 @@ export function useWalletBalance(
         ? userSolanaWallet.id
         : null;
 
-    if (!walletId) {
-      // Try alternative balance checking for external wallets
-      await checkExternalWalletBalance(solanaWallet.address);
-      return;
-    }
-
+    // Set loading state for both wallet types
     setIsLoading(true);
     setError(null);
+
+    if (!walletId) {
+      // Try alternative balance checking for external wallets
+      try {
+        await checkExternalWalletBalance(solanaWallet.address);
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     try {
       // Privy API uses "solana" for both mainnet and solana-devnet
