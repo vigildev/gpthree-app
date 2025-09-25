@@ -45,7 +45,8 @@ export function PaymentTest() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: "Hello, this is a test of the x402 payment system with automatic refunds.",
+          prompt:
+            "Hello, this is a test of the x402 payment system with automatic refunds.",
           model: "anthropic/claude-3.5-sonnet",
           userId: user.id,
           userWalletAddress: solanaWallet.address, // Add wallet address for refunds
@@ -54,13 +55,19 @@ export function PaymentTest() {
 
       if (response.ok) {
         const data = await response.json();
-        setResult(`✅ Payment successful! Response: ${JSON.stringify(data, null, 2)}`);
+        setResult(
+          `✅ Payment successful! Response: ${JSON.stringify(data, null, 2)}`
+        );
       } else {
-        setResult(`❌ Payment failed: ${response.status} ${response.statusText}`);
+        setResult(
+          `❌ Payment failed: ${response.status} ${response.statusText}`
+        );
       }
     } catch (error) {
       console.error("Payment test error:", error);
-      setResult(`❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`);
+      setResult(
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +77,9 @@ export function PaymentTest() {
     return (
       <div className="p-6 border border-border rounded-lg bg-card">
         <h3 className="text-lg font-medium mb-4">x402 Payment Test</h3>
-        <p className="text-muted-foreground">Please authenticate and connect a Solana wallet to test payments.</p>
+        <p className="text-muted-foreground">
+          Please authenticate and connect a Solana wallet to test payments.
+        </p>
       </div>
     );
   }
@@ -79,14 +88,10 @@ export function PaymentTest() {
     <div className="p-6 border border-border rounded-lg bg-card">
       <h3 className="text-lg font-medium mb-4">x402 Payment System Test</h3>
       <div className="space-y-4">
-        <Button 
-          onClick={testPayment} 
-          disabled={isLoading}
-          className="w-full"
-        >
+        <Button onClick={testPayment} disabled={isLoading} className="w-full">
           {isLoading ? "Processing Payment..." : "Test x402 Payment"}
         </Button>
-        
+
         {result && (
           <div className="mt-4 p-4 bg-muted rounded-lg">
             <pre className="text-sm whitespace-pre-wrap overflow-x-auto">
@@ -94,11 +99,18 @@ export function PaymentTest() {
             </pre>
           </div>
         )}
-        
+
         <div className="text-sm text-muted-foreground">
-          <p><strong>Test Details:</strong></p>
+          <p>
+            <strong>Test Details:</strong>
+          </p>
           <ul className="list-disc ml-4 mt-2 space-y-1">
-            <li>Network: Solana {process.env.NETWORK === 'solana' ? 'Mainnet' : 'Devnet'}</li>
+            <li>
+              Network: Solana{" "}
+              {process.env.NEXT_PUBLIC_NETWORK === "solana"
+                ? "Mainnet"
+                : "Devnet"}
+            </li>
             <li>Payment: $2.50 USDC upfront</li>
             <li>AI Usage: Calculated after response</li>
             <li>Refund: Automatic refund of unused amount</li>

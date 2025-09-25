@@ -15,7 +15,7 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useToast } from "@/hooks/use-toast";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 // Debug components - imports commented out
-// import { PaymentTest } from "@/components/payment-test";
+import { PaymentTest } from "./payment-test";
 // import { WalletDebug } from "./wallet-debug";
 
 interface PaymentInfo {
@@ -331,9 +331,9 @@ export function Dashboard({
       {/* <WalletDebug /> */}
 
       {/* x402 Payment Test - Development Only */}
-      {/* <div className="mb-8">
+      <div className="mb-8">
         <PaymentTest />
-      </div> */}
+      </div>
 
       {/* Chat History */}
       {displayMessages.length > 0 && (
@@ -390,8 +390,7 @@ export function Dashboard({
                           href={`https://explorer.solana.com/tx/${
                             msg.paymentInfo.transactionHash
                           }${
-                            typeof window !== "undefined" &&
-                            window.location.hostname === "localhost"
+                            process.env.NEXT_PUBLIC_NETWORK === "solana-devnet"
                               ? "?cluster=devnet"
                               : ""
                           }`}

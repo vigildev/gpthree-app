@@ -10,12 +10,12 @@ export const env = createEnv({
   server: {
     // DATABASE_URL: z.string().url(),
     // OPEN_AI_API_KEY: z.string().min(1),
-    PRIVY_APP_SECRET: z.string().default(""),
+    PRIVY_APP_SECRET: z.string().min(1, "PRIVY_APP_SECRET is required"),
     OPENROUTER_API_KEY: z.string().default(""),
     TREASURY_WALLET_ADDRESS: z.string().default(""),
     TREASURY_PRIVATE_KEY: z.string().default(""),
     TREASURY_WALLET_ID: z.string().optional(),
-    NETWORK: z.string().default("devnet"),
+    NEXT_PUBLIC_NETWORK: z.string().default("solana-devnet"),
     ASSET: z.string().default(""),
   },
   /*
@@ -24,11 +24,14 @@ export const env = createEnv({
    * 💡 You'll get type errors if these are not prefixed with NEXT_PUBLIC_.
    */
   client: {
-    NEXT_PUBLIC_PRIVY_APP_ID: z.string().default(""),
+    NEXT_PUBLIC_PRIVY_APP_ID: z
+      .string()
+      .min(1, "NEXT_PUBLIC_PRIVY_APP_ID is required"),
     NEXT_PUBLIC_CONVEX_URL: z.string().url().or(z.literal("")).default(""),
     NEXT_PUBLIC_BASE_URL: z.string().url().default("http://localhost:3000"),
     NEXT_PUBLIC_SOLANA_RPC_MAINNET: z.string().url().optional(),
     NEXT_PUBLIC_SOLANA_RPC_DEVNET: z.string().url().optional(),
+    NEXT_PUBLIC_NETWORK: z.string().default("solana-devnet"),
   },
   /*
    * Due to how Next.js bundles environment variables on Edge and Client,
@@ -49,7 +52,7 @@ export const env = createEnv({
     TREASURY_WALLET_ADDRESS: process.env.TREASURY_WALLET_ADDRESS,
     TREASURY_PRIVATE_KEY: process.env.TREASURY_PRIVATE_KEY,
     TREASURY_WALLET_ID: process.env.TREASURY_WALLET_ID,
-    NETWORK: process.env.NETWORK,
+    NEXT_PUBLIC_NETWORK: process.env.NEXT_PUBLIC_NETWORK,
     ASSET: process.env.ASSET,
   },
 });
