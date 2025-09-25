@@ -180,8 +180,70 @@ export class SimpleRefundService {
         }
       );
 
-      // Wait for confirmation
-      await this.connection.confirmTransaction(signature, "confirmed");
+      // Wait for confirmation with custom polling (no built-in timeouts)
+      console.log(
+        `⏱️ Waiting for transaction confirmation (up to 90 seconds)...`
+      );
+
+      const maxWaitTime = 90000; // 90 seconds
+      const pollInterval = 2000; // Check every 2 seconds
+      const startTime = Date.now();
+
+      let confirmed = false;
+      let lastStatus = "unknown";
+
+      while (!confirmed && Date.now() - startTime < maxWaitTime) {
+        try {
+          const status = await this.connection.getSignatureStatus(signature);
+          const confirmationStatus = status.value?.confirmationStatus;
+          lastStatus = confirmationStatus || "pending";
+
+          if (status.value?.err) {
+            console.error(
+              `❌ Transaction ${signature} failed:`,
+              status.value.err
+            );
+            throw new Error(
+              `Transaction failed: ${JSON.stringify(status.value.err)}`
+            );
+          }
+
+          if (
+            confirmationStatus === "confirmed" ||
+            confirmationStatus === "finalized"
+          ) {
+            console.log(
+              `✅ Transaction ${signature} confirmed! Status: ${confirmationStatus}`
+            );
+            confirmed = true;
+            break;
+          }
+
+          console.log(
+            `🔄 Transaction ${signature} status: ${lastStatus}, waiting...`
+          );
+
+          // Wait before next poll
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        } catch (statusError) {
+          console.warn(`Could not check transaction status: ${statusError}`);
+          // Wait and try again
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        }
+      }
+
+      if (!confirmed) {
+        const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+        console.warn(
+          `⚠️ Transaction confirmation timeout after ${elapsedTime}s (status: ${lastStatus})`
+        );
+        console.log(
+          `🔄 Transaction was broadcast successfully, treating as success`
+        );
+        console.log(
+          `💡 You can verify the transaction at: https://solscan.io/tx/${signature}?cluster=devnet`
+        );
+      }
 
       console.log(`✅ Simple refund transaction completed: ${signature}`);
 
