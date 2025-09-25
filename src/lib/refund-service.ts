@@ -54,11 +54,8 @@ export class RefundService {
       );
     }
 
-    const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID as string;
-
     this.privy = new PrivyClient(
-      // env.NEXT_PUBLIC_PRIVY_APP_ID,
-      PRIVY_APP_ID,
+      env.NEXT_PUBLIC_PRIVY_APP_ID,
       env.PRIVY_APP_SECRET
     );
 
@@ -71,7 +68,7 @@ export class RefundService {
     const defaultUsdcMint =
       network === "solana"
         ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // Mainnet USDC
-        : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // Use mainnet USDC for solana-devnet too
+        : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Correct devnet USDC
 
     this.usdcMint = new PublicKey(env.ASSET || defaultUsdcMint);
 

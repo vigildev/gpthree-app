@@ -15,8 +15,8 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useToast } from "@/hooks/use-toast";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
 // Debug components - imports commented out
-// import { PaymentTest } from "./payment-test";
-// import { WalletDebug } from "./wallet-debug";
+import { PaymentTest } from "./payment-test";
+import { WalletDebug } from "./wallet-debug";
 
 interface PaymentInfo {
   actualCost: number; // in USD
@@ -220,16 +220,26 @@ export function Dashboard({
           (wallet.address && wallet.address.length > 30)
       );
 
+      // Safety check: ensure we have a wallet address for refunds
+      if (!solanaWallet?.address) {
+        toast({
+          title: "Wallet Required",
+          description:
+            "Please connect a Solana wallet to use paid features with refunds.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Use x402 payment system via API route instead of direct Convex calls
       const requestBody = {
         prompt: userMessage,
         model: selectedModel,
         userId: user.id,
         systemEnhancement: selectedQuickAction?.systemEnhancement,
+        userWalletAddress: solanaWallet.address, // Always include for refunds
         ...(currentThreadId && { threadId: currentThreadId }),
-        ...(solanaWallet?.address && {
-          userWalletAddress: solanaWallet.address,
-        }),
       };
 
       const response = await makePaymentRequest("/api/chat", {
@@ -328,12 +338,12 @@ export function Dashboard({
       <PrivacyBanner />
 
       {/* Debug components - commented out for production */}
-      {/* <WalletDebug /> */}
+      <WalletDebug />
 
       {/* x402 Payment Test - Development Only */}
-      {/* <div className="mb-8">
+      <div className="mb-8">
         <PaymentTest />
-      </div> */}
+      </div>
 
       {/* Chat History */}
       {displayMessages.length > 0 && (

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../convex/_generated/api";
-import { RefundService } from "../../../lib/refund-service";
+import { SimpleRefundService } from "../../../lib/simple-refund-service";
 
 interface PaymentInfo {
   actualCost: number;
@@ -426,11 +426,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           `Processing refund of ${refundAmount} USDC micro-units to ${userWalletAddress}`
         );
 
-        // Execute refund using RefundService - userWalletAddress comes from request body
+        // Execute refund using Simple RefundService - userWalletAddress comes from request body
         if (!userWalletAddress) {
           console.error("❌ No user wallet address provided for refund");
         } else {
-          const refundService = new RefundService();
+          const refundService = new SimpleRefundService();
           try {
             const refundResult = await refundService.executeRefund(
               userWalletAddress,
@@ -470,7 +470,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           );
           console.log("💡 Refund will need to be processed manually:");
           console.log(
-            `   - Amount: ${refundAmount} USDC micro-units ($${RefundService.microUsdcToUsd(
+            `   - Amount: ${refundAmount} USDC micro-units ($${SimpleRefundService.microUsdcToUsd(
               refundAmount
             ).toFixed(6)})`
           );
