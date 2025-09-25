@@ -39,7 +39,8 @@ const nextConfig: NextConfig = {
                 https://*.privy.io 
                 https://cdn.privy.io 
                 https://www.googletagmanager.com
-                https://867bw7rqa6.ufs.sh;
+                https://867bw7rqa6.ufs.sh
+                https://hbx0m9xacc.ufs.sh;
               font-src 'self' data: 
                 https://cdn.privy.io 
                 https://*.auth.privy.io 
