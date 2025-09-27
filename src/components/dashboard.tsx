@@ -164,10 +164,10 @@ export function Dashboard({
     // Check wallet balance before making the API call
     if (hasInsufficientFunds) {
       toast({
-        title: "Insufficient Funds",
+        title: "💰 Insufficient Funds",
         description: `You need at least 2.5 ${tokenSymbol.toUpperCase()} to send a message. Your current balance is ${balance.toFixed(
           2
-        )} ${tokenSymbol.toUpperCase()}.`,
+        )} ${tokenSymbol.toUpperCase()}. Please add more funds to your wallet.`,
         variant: "destructive",
       });
       return;
@@ -176,7 +176,7 @@ export function Dashboard({
     // If balance is still loading, wait a moment and check again
     if (isCheckingBalance) {
       toast({
-        title: "Checking Balance",
+        title: "🔍 Checking Balance",
         description: "Please wait while we verify your wallet balance...",
       });
 
@@ -186,10 +186,10 @@ export function Dashboard({
       // Check again after refresh
       if (hasInsufficientFunds) {
         toast({
-          title: "Insufficient Funds",
+          title: "💰 Insufficient Funds",
           description: `You need at least 2.5 ${tokenSymbol.toUpperCase()} to send a message. Your current balance is ${balance.toFixed(
             2
-          )} ${tokenSymbol.toUpperCase()}.`,
+          )} ${tokenSymbol.toUpperCase()}. Please add more funds to your wallet.`,
           variant: "destructive",
         });
         return;
@@ -223,14 +223,21 @@ export function Dashboard({
       // Safety check: ensure we have a wallet address for refunds
       if (!solanaWallet?.address) {
         toast({
-          title: "Wallet Required",
+          title: "🔗 Wallet Required",
           description:
-            "Please connect a Solana wallet to use paid features with refunds.",
+            "Please connect a Solana wallet to use paid features with refunds. Your payment will be processed securely.",
           variant: "destructive",
         });
         setIsLoading(false);
         return;
       }
+
+      // Show payment processing toast
+      toast({
+        title: "💳 Processing Payment",
+        description:
+          "Initializing secure payment... This may take a few moments.",
+      });
 
       // Use x402 payment system via API route instead of direct Convex calls
       const requestBody = {
@@ -292,10 +299,76 @@ export function Dashboard({
 
       setChatMessages((prev) => [...prev, aiChatMessage]);
 
+      // Show success toast with payment info
+      if (paymentInfo) {
+        toast({
+          title: "✅ Message Sent Successfully",
+          description: `Payment processed! Cost: $${
+            paymentInfo.actualCost?.toFixed(4) || "N/A"
+          }, Refund: $${paymentInfo.refundAmount?.toFixed(4) || "N/A"}`,
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "✅ Message Sent",
+          description: "Your message was sent successfully!",
+          variant: "success",
+        });
+      }
+
       // Clear selected quick action after successful message
       setSelectedQuickAction(null);
     } catch (error) {
       console.error("Error sending message:", error);
+
+      // Determine error type and show appropriate toast
+      let errorTitle = "❌ Request Failed";
+      let errorDescription = "Something went wrong. Please try again.";
+
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+
+        if (errorMessage.includes("payment") || errorMessage.includes("x402")) {
+          errorTitle = "💳 Payment Error";
+          errorDescription =
+            "Payment processing failed. Please check your wallet and try again.";
+        } else if (
+          errorMessage.includes("network") ||
+          errorMessage.includes("connection")
+        ) {
+          errorTitle = "🌐 Connection Error";
+          errorDescription =
+            "Network connection issue. Please check your internet and try again.";
+        } else if (errorMessage.includes("insufficient")) {
+          errorTitle = "💰 Insufficient Funds";
+          errorDescription =
+            "Not enough funds for this transaction. Please add more tokens to your wallet.";
+        } else if (errorMessage.includes("wallet")) {
+          errorTitle = "🔗 Wallet Error";
+          errorDescription =
+            "Wallet connection issue. Please reconnect your wallet and try again.";
+        } else if (errorMessage.includes("timeout")) {
+          errorTitle = "⏱️ Request Timeout";
+          errorDescription =
+            "Request took too long. Please try again with a shorter message.";
+        } else if (errorMessage.includes("http 402")) {
+          errorTitle = "💳 Payment Required";
+          errorDescription = "Payment authorization failed. Please try again.";
+        } else if (errorMessage.includes("http 500")) {
+          errorTitle = "🔧 Server Error";
+          errorDescription =
+            "Our servers are experiencing issues. Please try again in a moment.";
+        } else if (errorMessage.includes("http")) {
+          errorTitle = "🌐 Request Error";
+          errorDescription = `Request failed (${error.message}). Please try again.`;
+        }
+      }
+
+      toast({
+        title: errorTitle,
+        description: errorDescription,
+        variant: "destructive",
+      });
 
       // Add error message to chat
       const errorChatMessage = {
@@ -525,7 +598,18 @@ export function Dashboard({
                 </span>
                 {/* Refresh balance button */}
                 <button
-                  onClick={() => checkBalance()}
+                  onClick={async () => {
+                    await checkBalance();
+                    if (!isCheckingBalance) {
+                      toast({
+                        title: "💰 Balance Updated",
+                        description: `Current balance: ${balance.toFixed(
+                          2
+                        )} ${tokenSymbol.toUpperCase()}`,
+                        variant: "success",
+                      });
+                    }
+                  }}
                   disabled={isCheckingBalance}
                   className={`ml-1 p-1 rounded-full hover:bg-muted/50 transition-colors ${
                     isCheckingBalance
