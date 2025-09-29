@@ -317,6 +317,8 @@ async function create402Response(): Promise<NextResponse> {
   });
 }
 
+
+// update endpoint to handle web search + sources
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // Check for payment header - x402 uses 'X-PAYMENT' (uppercase)
