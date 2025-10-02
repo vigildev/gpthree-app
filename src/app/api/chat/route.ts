@@ -83,7 +83,12 @@ async function createPaymentRequirements() {
     payTo: PAYMENT_CONFIG.recipientAddress,
     maxTimeoutSeconds: 300,
     asset: PAYMENT_CONFIG.asset, // Use USDC based on network
-    outputSchema: {},
+    outputSchema: {
+      input: {
+        type: "http",
+        discoverable: true,
+      },
+    },
     extra: {
       feePayer, // Dynamic fee payer from facilitator
     },
