@@ -1,5 +1,5 @@
 import { VersionedTransaction } from "@solana/web3.js";
-import { PaymentRequirements } from "../types";
+import { PaymentRequirements, Network } from "../types";
 
 /**
  * Helper utilities for x402 payment processing
@@ -34,21 +34,37 @@ export function createPaymentHeaderFromTransaction(
 }
 
 /**
- * Get default RPC URL for a given network
+ * Get default RPC URL for a given Solana network
+ * @param network - Must be 'solana' or 'solana-devnet'
+ * @returns Default RPC URL for the network
+ * @throws Error if network is not a Solana network
  */
-export function getDefaultRpcUrl(network: "solana" | "solana-devnet"): string {
-  return network === "solana"
-    ? "https://api.mainnet-beta.solana.com"
-    : "https://api.devnet.solana.com";
+export function getDefaultRpcUrl(network: Network): string {
+  if (network === "solana") {
+    return "https://api.mainnet-beta.solana.com";
+  } else if (network === "solana-devnet") {
+    return "https://api.devnet.solana.com";
+  }
+  throw new Error(
+    `Unsupported network for Solana RPC: ${network}. Only 'solana' and 'solana-devnet' are supported.`
+  );
 }
 
 /**
- * Get default USDC mint address for a given network
+ * Get default USDC mint address for a given Solana network
+ * @param network - Must be 'solana' or 'solana-devnet'
+ * @returns USDC mint address for the network
+ * @throws Error if network is not a Solana network
  */
-export function getDefaultUsdcMint(network: "solana" | "solana-devnet"): string {
-  return network === "solana"
-    ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // Mainnet USDC
-    : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Devnet USDC
+export function getDefaultUsdcMint(network: Network): string {
+  if (network === "solana") {
+    return "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // Mainnet USDC
+  } else if (network === "solana-devnet") {
+    return "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Devnet USDC
+  }
+  throw new Error(
+    `Unsupported network for Solana USDC: ${network}. Only 'solana' and 'solana-devnet' are supported.`
+  );
 }
 
 /**

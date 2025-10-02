@@ -16,7 +16,7 @@ interface NeonColorsProps {
   secondColor: string;
 }
 
-interface NeonGradientCardProps {
+interface NeonGradientCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'as'> {
   /**
    * @default <div />
    * @type ReactElement
@@ -63,9 +63,6 @@ interface NeonGradientCardProps {
    * The colors of the neon gradient
    * */
   neonColors?: NeonColorsProps;
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
 }
 
 export const NeonGradientCard: React.FC<NeonGradientCardProps> = ({

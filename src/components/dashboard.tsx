@@ -8,12 +8,13 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { useState, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useSolanaWallets } from "@privy-io/react-auth/solana";
+import { useSolanaWallets, ConnectedSolanaWallet } from "@privy-io/react-auth/solana";
 import { api } from "../../convex/_generated/api";
 import { usePaidRequest } from "@/hooks/usePaidRequest";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useToast } from "@/hooks/use-toast";
 import { QUICK_START_ACTIONS, QuickAction } from "@/constants/quick-actions";
+import type { MessageDoc } from "@convex-dev/agent";
 // Debug components - imports commented out
 // import { PaymentTest } from "./payment-test";
 // import { WalletDebug } from "./wallet-debug";
@@ -108,49 +109,33 @@ export function Dashboard({
   const persistedMessages: ChatMessage[] =
     messages && Array.isArray(messages) && messages.length > 0
       ? messages
-          .sort(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (a: any, b: any) => (a._creationTime || 0) - (b._creationTime || 0)
-          ) // Sort by creation time
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((msg: any, index: number) => {
-            // Role detection based on actual Convex Agent structure
-            const isUserMessage =
-              // Check the nested message.role field (this is the definitive field!)
-              msg.message?.role === "user" ||
-              // Fallback checks for other possible structures
-              msg.author === "user" ||
-              msg.role === "user" ||
-              msg.type === "user" ||
-              msg.sender === "user" ||
-              msg.from === "user" ||
-              msg.authorRole === "user" ||
-              msg.role === "human" ||
-              msg.author === "human";
+        .sort(
+          (a: MessageDoc, b: MessageDoc) => (a._creationTime || 0) - (b._creationTime || 0)
+        ) // Sort by creation time
+        .map((msg: MessageDoc, index: number) => {
+          // MessageDoc has a 'message' property that contains the actual AI SDK message
+          // The message.role can be 'user' | 'assistant' | 'system' | 'tool'
+          const isUserMessage = msg.message?.role === "user";
 
-            // Get content from the actual structure
-            const messageContent =
-              msg.text || // Direct text field
-              msg.message?.content?.[0]?.text || // Nested content structure
-              msg.content ||
-              msg.message ||
-              "";
+          // Extract text content from the message
+          // MessageDoc has a 'text' property for the extracted text content
+          const messageContent = msg.text || "";
 
-            return {
-              key: `${msg._id || index}`,
-              role: isUserMessage ? ("user" as const) : ("assistant" as const),
-              content: messageContent,
-              status: "complete" as const,
-              // Add generic payment info for all AI messages from database
-              paymentInfo: !isUserMessage
-                ? {
-                    actualCost: 0.005, // Generic cost estimate
-                    refundAmount: 2.495, // Generic refund estimate
-                    transactionHash: undefined, // No transaction hash for old messages
-                  }
-                : undefined,
-            } as ChatMessage;
-          })
+          return {
+            key: `${msg._id || index}`,
+            role: isUserMessage ? ("user" as const) : ("assistant" as const),
+            content: messageContent,
+            status: "complete" as const,
+            // Add generic payment info for all AI messages from database
+            paymentInfo: !isUserMessage
+              ? {
+                actualCost: 0.005, // Generic cost estimate
+                refundAmount: 2.495, // Generic refund estimate
+                transactionHash: undefined, // No transaction hash for old messages
+              }
+              : undefined,
+          } as ChatMessage;
+        })
       : [];
 
   // Use persisted messages if a thread is selected, otherwise use local state
@@ -212,7 +197,7 @@ export function Dashboard({
     try {
       // Find user's Solana wallet for refunds
       const solanaWallet = wallets.find(
-        (wallet) =>
+        (wallet: ConnectedSolanaWallet) =>
           wallet.walletClientType === "phantom" ||
           wallet.walletClientType === "solflare" ||
           wallet.walletClientType === "backpack" ||
@@ -303,9 +288,8 @@ export function Dashboard({
       if (paymentInfo) {
         toast({
           title: "✅ Message Sent Successfully",
-          description: `Payment processed! Cost: $${
-            paymentInfo.actualCost?.toFixed(4) || "N/A"
-          }, Refund: $${paymentInfo.refundAmount?.toFixed(4) || "N/A"}`,
+          description: `Payment processed! Cost: $${paymentInfo.actualCost?.toFixed(4) || "N/A"
+            }, Refund: $${paymentInfo.refundAmount?.toFixed(4) || "N/A"}`,
           variant: "success",
         });
       } else {
@@ -424,25 +408,22 @@ export function Dashboard({
           {displayMessages.map((msg) => (
             <div
               key={msg.key}
-              className={`${
-                msg.role === "user"
-                  ? "ml-4 sm:ml-8 lg:ml-12"
-                  : "mr-4 sm:mr-8 lg:mr-12"
-              }`}
+              className={`${msg.role === "user"
+                ? "ml-4 sm:ml-8 lg:ml-12"
+                : "mr-4 sm:mr-8 lg:mr-12"
+                }`}
             >
               <div
-                className={`text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide ${
-                  msg.role === "user" ? "text-right" : "text-left"
-                }`}
+                className={`text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide ${msg.role === "user" ? "text-right" : "text-left"
+                  }`}
               >
                 {msg.role === "user" ? "You" : "GPThree"}
               </div>
               <div
-                className={`p-4 lg:p-6 rounded-2xl lg:rounded-3xl ${
-                  msg.role === "user"
-                    ? "bg-primary/10 text-foreground border border-primary/20 ml-auto"
-                    : "bg-card border border-border text-card-foreground shadow-sm mr-auto"
-                }`}
+                className={`p-4 lg:p-6 rounded-2xl lg:rounded-3xl ${msg.role === "user"
+                  ? "bg-primary/10 text-foreground border border-primary/20 ml-auto"
+                  : "bg-card border border-border text-card-foreground shadow-sm mr-auto"
+                  }`}
               >
                 {msg.content}
                 {msg.status !== "complete" && (
@@ -461,22 +442,19 @@ export function Dashboard({
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <span className="font-medium">
                         {msg.paymentInfo
-                          ? `Paid with USDC $${
-                              msg.paymentInfo.actualCost < 0.01
-                                ? msg.paymentInfo.actualCost.toFixed(6)
-                                : msg.paymentInfo.actualCost.toFixed(4)
-                            }`
+                          ? `Paid with USDC $${msg.paymentInfo.actualCost < 0.01
+                            ? msg.paymentInfo.actualCost.toFixed(6)
+                            : msg.paymentInfo.actualCost.toFixed(4)
+                          }`
                           : "Paid with USDC"}
                       </span>
                       {msg.paymentInfo?.transactionHash && (
                         <a
-                          href={`https://explorer.solana.com/tx/${
-                            msg.paymentInfo.transactionHash
-                          }${
-                            process.env.NEXT_PUBLIC_NETWORK === "solana-devnet"
+                          href={`https://explorer.solana.com/tx/${msg.paymentInfo.transactionHash
+                            }${process.env.NEXT_PUBLIC_NETWORK === "solana-devnet"
                               ? "?cluster=devnet"
                               : ""
-                          }`}
+                            }`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-green-500 hover:text-green-400 transition-colors"
@@ -579,18 +557,16 @@ export function Dashboard({
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1">
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    isCheckingBalance
-                      ? "bg-yellow-500 animate-pulse"
-                      : hasInsufficientFunds
+                  className={`w-2 h-2 rounded-full ${isCheckingBalance
+                    ? "bg-yellow-500 animate-pulse"
+                    : hasInsufficientFunds
                       ? "bg-red-500"
                       : "bg-green-500"
-                  }`}
+                    }`}
                 ></div>
                 <span
-                  className={`text-xs ${
-                    hasInsufficientFunds ? "text-red-400" : "text-green-400"
-                  }`}
+                  className={`text-xs ${hasInsufficientFunds ? "text-red-400" : "text-green-400"
+                    }`}
                 >
                   {isCheckingBalance
                     ? "Checking..."
@@ -611,19 +587,17 @@ export function Dashboard({
                     }
                   }}
                   disabled={isCheckingBalance}
-                  className={`ml-1 p-1 rounded-full hover:bg-muted/50 transition-colors ${
-                    isCheckingBalance
-                      ? "cursor-not-allowed"
-                      : "hover:text-primary"
-                  }`}
+                  className={`ml-1 p-1 rounded-full hover:bg-muted/50 transition-colors ${isCheckingBalance
+                    ? "cursor-not-allowed"
+                    : "hover:text-primary"
+                    }`}
                   title="Refresh balance"
                 >
                   <RefreshCw
-                    className={`h-3 w-3 ${
-                      isCheckingBalance
-                        ? "animate-spin text-muted-foreground"
-                        : ""
-                    }`}
+                    className={`h-3 w-3 ${isCheckingBalance
+                      ? "animate-spin text-muted-foreground"
+                      : ""
+                      }`}
                   />
                 </button>
               </div>
@@ -661,11 +635,10 @@ export function Dashboard({
                 onClick={() => {
                   setSelectedQuickAction(action);
                 }}
-                className={`group relative overflow-hidden rounded-xl lg:rounded-2xl bg-gradient-to-br p-4 lg:p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${
-                  selectedQuickAction?.text === action.text
-                    ? "from-primary/20 to-primary/10 border-primary/40 shadow-lg shadow-primary/10"
-                    : "from-card/50 to-card border border-border/50 hover:border-primary/20"
-                }`}
+                className={`group relative overflow-hidden rounded-xl lg:rounded-2xl bg-gradient-to-br p-4 lg:p-6 text-left transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02] ${selectedQuickAction?.text === action.text
+                  ? "from-primary/20 to-primary/10 border-primary/40 shadow-lg shadow-primary/10"
+                  : "from-card/50 to-card border border-border/50 hover:border-primary/20"
+                  }`}
               >
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 lg:gap-3 mb-2 lg:mb-3">
@@ -673,17 +646,16 @@ export function Dashboard({
                       {index === 0
                         ? "🔍"
                         : index === 1
-                        ? "📊"
-                        : index === 2
-                        ? "📚"
-                        : "✍️"}
+                          ? "📊"
+                          : index === 2
+                            ? "📚"
+                            : "✍️"}
                     </div>
                     <h4
-                      className={`font-medium text-sm lg:text-base transition-colors ${
-                        selectedQuickAction?.text === action.text
-                          ? "text-primary"
-                          : "text-foreground group-hover:text-primary"
-                      }`}
+                      className={`font-medium text-sm lg:text-base transition-colors ${selectedQuickAction?.text === action.text
+                        ? "text-primary"
+                        : "text-foreground group-hover:text-primary"
+                        }`}
                     >
                       {action.text}
                       {selectedQuickAction?.text === action.text && (
