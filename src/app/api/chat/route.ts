@@ -11,13 +11,26 @@ interface PaymentInfo {
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+// Validate required environment variables
+if (!process.env.TREASURY_WALLET_ADDRESS) {
+  throw new Error("TREASURY_WALLET_ADDRESS environment variable is required");
+}
+
+// Get USDC mint address based on network
+const getUsdcMint = (network: string): string => {
+  return network === "solana"
+    ? "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // Mainnet USDC
+    : "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Devnet USDC
+};
+
+const NETWORK = process.env.NEXT_PUBLIC_NETWORK === "solana" ? "solana" : "solana-devnet";
+
 // x402 Payment configuration with fixed upfront amount
 const PAYMENT_CONFIG = {
   amount: 2500000, // $2.5 USDC
   currency: "USDC",
-  network:
-    process.env.NEXT_PUBLIC_NETWORK === "solana" ? "solana" : "solana-devnet", // Map to correct x402 network names
-  asset: process.env.ASSET || "usdc", // Add fallback
+  network: NETWORK,
+  asset: getUsdcMint(NETWORK), // USDC mint address
   facilitatorUrl: "https://facilitator.payai.network",
   recipientAddress: process.env.TREASURY_WALLET_ADDRESS,
   description: "AI Chat Request - GPThree Assistant (Pay-per-use with refund)",
@@ -426,10 +439,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           `Processing refund of ${refundAmount} USDC micro-units to ${userWalletAddress}`
         );
 
-        // Execute refund using Simple RefundService - userWalletAddress comes from request body
-        if (!userWalletAddress) {
+        // Check if we have a valid private key before attempting refund
+        if (!process.env.TREASURY_PRIVATE_KEY || process.env.TREASURY_PRIVATE_KEY === 'YOUR_TREASURY_PRIVATE_KEY_HERE') {
+          console.warn("⚠️ TREASURY_PRIVATE_KEY not configured - skipping automatic refund");
+          console.log(`💡 Manual refund needed: ${refundAmount} micro-USDC to ${userWalletAddress}`);
+        } else if (!userWalletAddress) {
           console.error("❌ No user wallet address provided for refund");
         } else {
+          try {
+            const refundService = new SimpleRefundService();
+          } catch (initError) {
+            console.warn("⚠️ Failed to initialize refund service (invalid private key) - skipping refund");
+            console.log(`💡 Manual refund needed: ${refundAmount} micro-USDC to ${userWalletAddress}`);
+            // Continue without refund
+            return;
+          }
           const refundService = new SimpleRefundService();
           try {
             const refundResult = await refundService.executeRefund(
