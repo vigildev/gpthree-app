@@ -16,6 +16,7 @@
     "@convex-dev/agent": "^0.1.16",
     "@convex-dev/auth": "^0.0.88",
     "@openrouter/ai-sdk-provider": "^0.7.3",
+    "@payai/x402-solana": "file:~/Projects/payai/x402-solana",
     "@privy-io/react-auth": "^2.24.0",
     "@privy-io/server-auth": "^1.32.5",
     "@radix-ui/react-select": "^2.2.5",
